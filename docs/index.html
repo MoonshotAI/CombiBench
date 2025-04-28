@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="CombiBench: Benchmarking LLM Capability for Combinatorial Mathematics">
+  <meta name="keywords" content="CombiBench, Automated theorem proving, Evaluation">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CombiBench: Benchmarking LLM Capability for Combinatorial Mathematicse</title>
+
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+    gtag('js', new Date());
+    gtag('config', 'G-PYVRSFMDRL');
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const btn = document.getElementById("toggle-code");
+      const container = document.getElementById("code-container");
+      const codeBlock = container.querySelector("code");
+
+      btn.addEventListener("click", () => {
+        const isOpen = container.classList.toggle("open");
+        if (isOpen) {
+          container.style.maxHeight = container.scrollHeight + "px";
+          codeBlock.style.overflowY = "auto";
+          btn.innerHTML = "🔼 Hide Code";
+        } else {
+          codeBlock.scrollTop = 0;
+          codeBlock.style.overflowY = "hidden";
+          container.style.maxHeight = "3.5rem";
+          btn.innerHTML = "🔽 Show Code";
+        }
+      });
+
+      if (!codeBlock) return;
+
+      const keywords = {
+        "import": "mtk5",
+        "open": "mtk5",
+        "structure": "mtk5",
+        "where": "mtk5",
+        "by": "mtk5",
+        "def": "mtk5",
+        "instance": "mtk5",
+        "theorem": "mtk5",
+        "abbrev": "mtk5",
+        "noncomputable": "mtk5",
+        "if": "mtk5",
+        "Prop": "mtk5",
+        "sorry": "mtk10"
+      };
+
+      const exactKeywords = {
+      "@[simp]": "mtk5",
+      "@[aesop safe]": "mtk5",
+      "@[macro]": "mtk5",
+      "⟦": "mtk5",
+      "⟧": "mtk5"
+    };
+
+      let html = codeBlock.innerHTML;
+
+      for (const [keyword, className] of Object.entries(keywords)) {
+        const regex = new RegExp(`\\b(${keyword})\\b`, "g");
+        html = html.replace(regex, `<span class="${className}">$1</span>`);
+      }
+
+      for (const [keyword, className] of Object.entries(exactKeywords)) {
+        const regex = new RegExp(keyword.replace(/[[\]]/g, '\\$&'), "g");
+        html = html.replace(regex, `<span class="${className}">${keyword}</span>`);
+      }
+
+      html = html.replace(/(?<![\w])(\d+)(?![\w])/g, `<span class="mtk6">$1</span>`);
+
+      html = html.replace(/([\[\]\(\)\{\}])/g, `<span class="mtk5">$1</span>`);
+
+      codeBlock.innerHTML = html;
+    });
+
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/icon.svg">
+
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+  <script src="./static/js/bulma-carousel.min.js"></script>
+  <script src="./static/js/bulma-slider.min.js"></script>
+  <script src="./static/js/index.js"></script>
+
+  <style>
+    .scroll-code{
+      height: 500px;
+      overflow-y: hidden;
+      display: block;
+    }
+    .collapsible {
+      overflow: hidden;
+      transition: max-height 0.3s;
+      background-color: #f5f5f5;
+      border-radius: 6px;
+      margin-top: 1rem;
+    }
+
+    .mtk5{
+      color:#0000ff;
+    }
+
+    .mtk6{
+      color: #098658;
+    }
+
+    .mtk10{
+      color: #cd3131;
+    }
+  </style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">CombiBench: Benchmarking LLM Capability for Combinatorial Mathematics</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Junqi Liu</a>,
+            </span>
+            <span class="author-block">
+              <a href="https://xiaohlim.github.io/">Xiaohan Lin</a>,
+            </span>
+            <span class="author-block">
+              Jonas Bayer</a>,
+            </span>
+            <span class="author-block">
+              Yael Dillies</a>,
+            </span>
+            <span class="author-block">
+              Weijie Jiang</a>,
+            </span>
+            </div>
+            <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Xiaodan Liang</a>,
+            </span>
+            <span class="author-block">
+              Roman Soletskyi</a>,
+            </span>
+            <span class="author-block">
+              Haiming Wang</a>,
+            </span>
+            <span class="author-block">
+              Yunzhou Xie</a>,
+            </span>
+            <span class="author-block">
+              Beibei Xiong</a>,
+            </span>
+            </div>
+            <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              Zhengfeng Yang</a>,
+            </span>
+            <span class="author-block">
+              Jujian Zhang</a>,
+            </span>
+            <span class="author-block">
+              <a href="http://www.mmrc.iss.ac.cn/~lzhi/">Lihong Zhi</a>,
+            </span>
+            <span class="author-block">
+              <a href="https://x.com/jiali52524397">Jia Li</a>,
+            </span>
+            <span class="author-block">
+              <a href="https://scholar.google.com/citations?user=DFme0joAAAAJ">Zhengying Liu</a>,
+            </span>
+          </div>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">Academy of Mathematics and Systems Science, Chinese Academy of Sciences</span>
+          </div>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">Sun Yat-sen University</a>,</span>
+            <span class="author-block">University of Cambridge</a>,</span>
+            <span class="author-block">East China Normal University</a>,</span>
+          </div>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">Imperial College London</a>,</span>
+            <span class="author-block">Stockholm Universitet</a>,</span>
+            <span class="author-block">Numina</a>,</span>
+            <span class="author-block">Moonshot AI</a></span>
+          </div>
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <!-- PDF Link. -->
+              <span class="link-block">
+                <a href=""
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <!-- <span class="link-block">
+                <a href="https://arxiv.org/abs/2407.11214"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span> -->
+              <span class="link-block">
+                <a href="https://huggingface.co/datasets/AI-MO/CombiBench"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    <img src="./static/images/hf-logo.png" alt="">
+                  </span>
+                  <span>Huggingface</span>
+                </a>
+              </span>
+              <!-- Code Link. -->
+              <span class="link-block">
+                <a href="https://github.com/MoonshotAI/CombiBench"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Dataset</span>
+                  </a>
+              </span>
+              <span class="link-block">
+                <a href="https://github.com/MoonshotAI/CombiBench/leaderboard.html"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                    🏆
+                  </span>
+                  <span>Leaderboard</span>
+                </a>
+              </span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Neurosymbolic approaches integrating large language models with formal reason-
+            ing have recently achieved human-level performance on mathematics competition
+            problems in algebra, geometry, and number theory. In comparison, combinatorics
+            remains a challenging domain, characterised by a lack of appropriate benchmarks
+            and theorem libraries. To address this gap, we introduce CombiBench, a com-
+            prehensive benchmark comprising 100 combinatorial competition problems, each
+            formalized in Lean 4 and paired with its corresponding informal statement. The
+            problem set covers a wide spectrum of difficulty levels, ranging from middle school
+            to IMO and university level, and span over ten combinatorial topics. Furthermore,
+            we provide a comprehensive and standardized evaluation framework for formal
+            mathematics. It accommodates not only proof-based problems but also, for the first
+            time, the evaluation of fill-in-the-blank questions. Using the proposed evaluation
+            method, we benchmark several models on CombiBench and observe that their
+            capabilities for formally solving combinatorial problems remain limited. Among
+            all tested models, Kimina-Prover attains the best results, solving 7 problems un-
+            der both "with solution" and "without solution" scenarios. We open source the
+            benchmark dataset alongside with the code of the proposed evaluation method at
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">International Mathematical Olympiad</h2>
+        <div class="content has-text-justified">
+          <p>
+            The International Mathematical Olympiad (IMO) is the most prestigious and competitive global mathematics competition for high school students. Established in 1959, the IMO aims to challenge and inspire young mathematicians from around the world.
+            Each year, teams of up to six students from over 100 countries participate in the event, which consists of solving six highly complex mathematical problems over two days.
+            The problems span various areas of mathematics, including algebra, geometry, number theory, and combinatorics, requiring not only deep mathematical knowledge but also creativity and problem-solving skills.
+            Many individuals who have won the Fields Medal--the highest honor in mathematics, have participated in the IMO. More recently, the annual IMO competition has also become widely recognised as the ultimate <a href="https://imo-grand-challenge.github.io/" style="text-decoration: underline;">grand challenges</a> for Artificial Intelligence (AI).
+            <a href="https://aimoprize.com/" style="text-decoration: underline;">Artificial Intelligence Mathematical Olympiad (AIMO)</a> has even set up a \$10 million prize to reward the first AI system that reaches the level of an IMO gold medalist.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Motivation</h2>
+        <div class="content has-text-justified">
+          <p>
+            <b>CombiBench</b>: Currently, existing formal mathematics benchmarks in Lean 4 scarcely cover combinatorial mathematics. Our CombiBench aims to address this gap by providing comprehensive testing standards for evaluating large language models' capabilities in this area. In 2024, Google DeepMind's <a href="https://deepmind.google/discover/blog/ai-solves-imo-problems-at-silver-medal-level/"  style="text-decoration: underline;">Alphaproof</a> successfully solved four problems in the International Mathematical Olympiad (IMO) using Lean, achieving a level comparable to human silver medalists. However, the remaining two unsolved problems by Alphaproof were both combinatorial in nature. This outcome can be attributed to two primary factors:
+            <ul>
+              <li>The absence of robust benchmarks to assess models' proficiency in combinatorial mathematics;</li>
+              <li>The limited coverage of combinatorial content within Lean's math library —— Mathlib.</li>
+              <li>In combinatorial mathematics, the gap between informal and formal is larger than in other areas. For a specific problem, it is often necessary to add some definitions that are unique to that problem.</li>
+            </ul>
+          </p>
+          <p>
+            <b>Evaluation</b>: Traditional formal math benchmarks (such as MiniF2F, FIMO) primarily consist of theorem-proving tasks, where evaluation methods focus on assessing whether a model can successfully complete a proof. However, PutnamBench introduces a new standardized formalization for fill-in-the-blank problems, which existing evaluation approaches are not equipped to handle effectively. Unlike standard proof-based problems, fill-in-the-blank questions require the model to first construct a solution and then verify its correctness. Current evaluation methods are insufficient for this problem type, as they focus solely on proving given propositions without addressing solution generation and validation. To bridge this gap, we developed a novel evaluation framework specifically designed to assess model performance on fill-in-the-blank problems. This approach not only adapts evaluation techniques to new problem formats but also provides a more comprehensive measure of a model’s mathematical reasoning abilities—particularly in solution construction and solution verification.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">CombiBench</h2>
+        <div class="content has-text-justified">
+          <p>
+            CombiBench is the first benchmark focused on combinatorial competition problems written entirely in Lean 4.
+            It is a manually produced benchmark that includes 100 combinatorial mathematics problems of varying difficulty and knowledge levels.
+            We select 10 easy problems from <a href="https://www.hackmath.net/">https://www.hackmath.net/</a>, 42 exercises from Brualdi's book, 36 IMO problems, and 12 problems from other math competitions.
+            This composition ensures that CombiBench covers a wide range of difficulty, from easy to difficult, reflecting good diversity in difficulty.
+          </p>
+          <p>
+            In CombiBench, 45% of the problems require first providing a solution to the problem and then proving its correctness.
+            <a href="https://trishullab.github.io/PutnamBench/">PutnamBench</a> introduces a standardized method for formalizing statements of such problems, which more accurately reflects the difficulty of informal problems.
+            We follow this style in CombiBench.
+          </p>
+          <p>
+            We analyzed the length of the formalized statements in CombiBench, miniF2F, PutnamBench, and FIMO.
+            We excluded blank lines, comments, <span style="color: blue;">import</span>'s, and <span style="color: blue;">open</span>'s, focusing only on the length of the formalized code directly related to the problem statements.
+          </p>
+          <p>
+            <img src="./static/images/Codelenth.jpg" alt="">
+            We found that all problem formalizations in FIMO and miniF2F are within 15 lines.
+            In PutnamBench and CombiBench, some problems have formalizations ranging from 16 to 30 lines, and those exceeding 30 lines are almost entirely from CombiBench.
+            This indicates that formalizing combinatorics problems is particularly challenging.
+          </p>
+        </div>
+      </div>
+    </div>
+    <!--/ Abstract. -->
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">The longest formal statement in CombiBench</h2>
+        <div class="content has-text-justified">
+          <p>
+            We count the number of lines of formalization code for all problems (excluding blank lines) in CombiBench.
+            The results showed that more than half of the problems have more than 10 lines of code after formalization, more than a quarter have more than 20 lines, and the most challenging problem reached 67.
+          </p>
+            <b>bxmo 2017 p2.</b>
+            <p>
+            <b>informal statement </b> :
+            Let <span>\(n \geqslant 2\)</span> be an integer. Alice and Bob play a game concerning a country made of <span>\(n\)</span> islands. Exactly two of those <span>\(n\)</span> islands have a factory. Initially there is no bridge in the country. Alice and Bob take turns in the following way. In each turn, the player must build a bridge between two different islands <span>\(I_1\)</span> and <span>\(I_2\)</span> such that:
+            </p>
+            <ul>
+              <li><span>\(I_1\)</span> and <span>\(I_2\)</span> are not already connected by a bridge;</li>
+              <li>at least one of the two islands <span>\(I_1\)</span> and <span>\(I_2\)</span> is connected by a series of bridges to an island with a factory (or has a factory itself). (Indeed, access to a factory is needed for the construction.)</li>
+            </ul>
+            <p>
+            As soon as a player builds a bridge that makes it possible to go from one factory to the other, this player loses the game. (Indeed, it triggers an industrial battle between both factories.) If Alice starts, then determine (for each <span>\(n \geqslant 2\)</span>) who has a winning strategy.
+            </p>
+            <p><em>Note:</em> It is allowed to construct a bridge passing above another bridge.</p>
+            </p>
+          <p><b>formal statement :</b></p>
+          <button id="toggle-code" class="button is-small is-dark is-rounded">🔽 Show Code</button>
+
+          <pre id="code-container" class="collapsible" style="max-height: 3.5rem;"><code class="language-lean scroll-code">import Mathlib
+
+variable (m : ℕ)
+
+local notation3 (prettyPrint := false) "n" => (m + 2)
+local notation3 (prettyPrint := false) "F1" => (0 : Fin n)
+local notation3 (prettyPrint := false) "F2" => (1 : Fin n)
+
+structure GameState where
+  islands: SimpleGraph (Fin n)
+  decidable: DecidableRel islands.Adj
+
+instance (s : GameState m) : DecidableRel s.islands.Adj := by
+  exact s.decidable
+
+def GameState.initial : GameState m := {
+  islands := ⊥
+  decidable := SimpleGraph.Bot.adjDecidable (Fin n)
+}
+
+structure Bridge where
+  island1 : Fin n
+  island2 : Fin n
+
+def reachableByFactory (s : GameState m) (b : Bridge m) : Prop :=
+  s.islands.Reachable b.island1 F1 ∨ s.islands.Reachable b.island1 F2
+  ∨ s.islands.Reachable b.island2 F1 ∨ s.islands.Reachable b.island2 F2
+
+def isValidMove (s : GameState m) (b : Bridge m) : Prop :=
+  b.island1 ≠ b.island2 ∧ ¬ s.islands.Adj b.island1 b.island2 ∧ reachableByFactory m s b
+
+def GameState.next (s : GameState m) (b : Bridge m) : GameState m := {
+  islands := s.islands ⊔ (SimpleGraph.fromEdgeSet {s(b.island1, b.island2)})
+  decidable := by
+    have newEdge: DecidableRel (SimpleGraph.fromEdgeSet {s(b.island1, b.island2)}).Adj := by
+      intro x y; unfold SimpleGraph.fromEdgeSet
+      simp only [Pi.inf_apply, Sym2.toRel_prop, Set.mem_singleton_iff, Sym2.eq, Sym2.rel_iff',
+        Prod.mk.injEq, Prod.swap_prod_mk, ne_eq, inf_Prop_eq]
+      infer_instance
+    exact SimpleGraph.Sup.adjDecidable (Fin n) s.islands (SimpleGraph.fromEdgeSet {s(b.island1, b.island2)})
+}
+
+def GameState.is_losing_state (s : GameState m) : Prop :=
+  s.islands.Reachable F1 F2
+
+abbrev Strategy := GameState m → Bridge m
+
+instance (s: GameState m) : Decidable (GameState.is_losing_state m s) := by
+  simp [GameState.is_losing_state]; infer_instance
+
+instance (s: GameState m) (b : Bridge m) : Decidable (reachableByFactory m s b) := by
+  simp [reachableByFactory]; infer_instance
+
+instance (s: GameState m) (b : Bridge m) : Decidable (isValidMove m s b) := by
+  simp [isValidMove]; infer_instance
+
+structure MoveOutcome where
+  nextState : GameState m
+  hasLost : Bool
+
+def executeStrategy (s : GameState m) (strategy: Strategy m): MoveOutcome m :=
+  let bridge := strategy s
+  if ¬ isValidMove m s bridge
+    then { nextState := s, hasLost := true }
+  else
+    let nextState := s.next m bridge
+    { nextState := nextState, hasLost := nextState.is_losing_state m }
+
+partial def aliceWins (s : GameState m) (sA: Strategy m) (sB: Strategy m): Bool :=
+  let ⟨stateAfterAlicesMove, aliceHasLost⟩ := executeStrategy m s sA;
+  if aliceHasLost then False else
+  let ⟨stateAfterBobsMove, bobHasLost⟩ := executeStrategy m stateAfterAlicesMove sB;
+  if bobHasLost then True else
+  aliceWins stateAfterBobsMove sA sB
+
+abbrev bxmo_2017_p2_solution : ℕ → Fin 2 := sorry
+
+theorem bxmo_2017_p2 : (bxmo_2017_p2_solution n = 0 →
+    ∃ strategyA , ∀ strategyB, aliceWins m (GameState.initial m) strategyA strategyB)
+    ∧ (bxmo_2017_p2_solution n = 1 →
+    ∃ strategyB, ∀ strategyA, ¬ aliceWins m (GameState.initial m) strategyA strategyB) := by sorry
+            </code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths" style="width: 100%;">
+        <h2 class="title is-3">Evaluation: Fine-Eval</h2>
+        <div class="content has-text-justified">
+          <p>
+            Both methods work well for verifying proof problems, but cannot verify fill-in-the-blank problems.
+            To address the issue, we propose a new evaluation pipeline to verify both types of problems in Lean 4 named Fine-Eval (Fill-in-the-blank in Lean Evaluation).
+            Fine-Eval interacts with two servers, LLM and Lean. LLM takes as input an entire formal statement with the proof and the blanks to be filled in replaced by <span style="color: red;">sorry</span>'s,
+            and writes a snippet of complete Lean 4 code.
+          </p>
+          <p>We check whether the solution provided by LLM and the ground truth are exactly matched. If the solution and ground truth are exactly matched, we believe that the model has successfully solved the problem.
+            If not, we then try to verify that the answer that LLM predicts is equivalent to the ground truth.
+            To avoid unnecessary LLM calls, we construct a formal statement as following asserting that \(xx\_solution = ground\_turth\) and try to prove it using two common tactics: \(rfl\) and \(norm\_num\).
+            <pre id="code-container" class="collapsible" style="max-height: 6rem;"><code class="language-lean scroll-code">example : imo_2006_p2_solution = ground_truth := by
+  try rfl
+  try norm_num
+            </code></pre>
+            If the lean verifier returns that it cannot be proved, we consider that matching answer non-trivial and add the statement to the input of the first round of LLM to prove it again.
+            We use the same criterion as the first phase to determine whether the LLM's proof is successful. The following figure demonstrates the process of Fine-Eval:
+          </p>
+            <img src="./static/images/pipeline.jpg" alt="">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Baseline</h2>
+        <div class="content has-text-justified">
+          <p>
+            To demonstrate the significant challenge that CombiBench poses to LLMs, we evaluate it on different LLMs using various computational budgets.
+            We consider two types of models, one is the model fine-tuned on the automated theorem proving task (indicated by "theorem prover"),
+            the size of such models is usually 7B or less (except Kimina-Prover Preview) and the other is the general reasoning model (indicated by "reasoning model").
+            We evaluate  pass@16 of these models on CombiBench using whole-proof generation.
+            The experimental results are presented in the following table.
+          </p>
+            <img src="./static/images/baseline.jpg" alt="">
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <!-- Abstract. -->
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Licensing</h2>
+        <div class="content has-text-justified">
+          <p>
+            CombiBench is available under the MIT License.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- <section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>
+
+</code></pre>
+  </div>
+</section> -->
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <a class="icon-link" href="https://github.com/keunhong" class="external-link" disabled>
+        <i class="fab fa-github"></i>
+      </a>
+    </div>
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            we have borrowed this site template from <a href="https://nerfies.github.io/">the Nerfies webpage</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

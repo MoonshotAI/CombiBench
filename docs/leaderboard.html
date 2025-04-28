@@ -1,0 +1,253 @@
+<!doctype html>
+<html>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400&display=swap" rel="stylesheet" />
+
+<head>
+  <meta charset="UTF-8" />
+  <title>CombiBench Leaderboard</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.3.3/dist/echarts.min.js"></script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/icon.svg">
+  <!-- favicon.svg -->
+  <!-- <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👍</text></svg>"> -->
+  <!-- <link rel="icon" href="/favicon.svg" /> -->
+  <link rel="icon" href="/static/images/icon.svg" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css" />
+
+  <style>
+    .leaderboard-body tr:hover {
+      background-color: #f0f8ff;
+      cursor: pointer;
+    }
+
+    .without-solution-body tr:hover {
+      background-color: #f0f8ff;
+      cursor: pointer;
+    }
+
+
+    .table thead th {
+      background-color: #f8f8f8;
+      color: #333;
+      font-weight: bold;
+      font-size: 1rem;
+      border-bottom: 2px solid #ddd;
+    }
+
+    .table td,
+    .table th {
+      padding: 1rem;
+      vertical-align: middle;
+      /* border: 1px solid #eaeaea; */
+    }
+
+    .table-container {
+      /* box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06); */
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .leaderboard-rank {
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    .leaderboard-rank.🥇 {
+      color: gold;
+    }
+
+    .leaderboard-rank.🥈 {
+      color: silver;
+    }
+
+    .leaderboard-rank.🥉 {
+      color: #cd7f32;
+    }
+
+    .title{
+      font-size: large;
+    }
+
+    .leaderboard-title {
+      font-size: 1.25rem;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 1rem;
+      padding: 0.5rem 1rem;
+      display: inline-block;
+    }
+  </style>
+</head>
+
+<body>
+
+  <section class="hero">
+    <div class="hero-body">
+      <div class="container is-max-desktop">
+        <div class="columns is-centered">
+          <div class="column has-text-centered">
+            <h1 class="title is-1 publication-title">🏆 CombiBench Leaderboard 🏆</h1>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top: 0; display: flex; justify-content: center; width: 70vw; margin-left: 15vw;">
+
+    <div class="container" style="width: 49%; display: flex; flex-direction: column; align-items: center;">
+      <div class="leaderboard-title">With Solution</div>
+      <div class="table-container">
+        <table class="table is-fullwidth">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Model</th>
+              <th>Solved</th>
+              <th>Compute</th>
+            </tr>
+          </thead>
+          <tbody class="without-solution-body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+
+    <div class="container" style="width: 49%; display: flex; flex-direction: column; align-items: center;">
+      <div class="leaderboard-title">Without Solution</div>
+      <div class="table-container">
+        <table class="table is-fullwidth">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Model</th>
+              <th>Solved</th>
+              <th>Compute</th>
+            </tr>
+          </thead>
+          <tbody class="leaderboard-body">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" style="display: flex;justify-content: center; padding-top: 0">
+    <div id="notes" style="width: 50vw;">
+      <h3>📝 Notes</h3>
+      <div class="inline-block mt-3">
+        <ol>
+          <li>
+            If you have any new test result, please share your results with us and we will promptly update the leaderboard!
+          </li>
+          <li>
+            We are happy to receive suggestions for better communicating the varying compute budgets of different approaches on the leaderboard. Feel free to contact us with your ideas.
+          </li>
+          <li>
+            We are grateful for <a href="https://github.com/Wzixiao">Ran Wang</a>'s contribution to the creation of the leaderboard.
+          </li>
+        </ol>
+      </div>
+    </div>
+    </div>
+  </section>
+
+
+  <script>
+    const renderLeaderboard = () => {
+      const leaderboardData = [
+        { model: "Kimina-Prover Preview", solved: 7, compute: "pass@16", url: "https://github.com/MoonshotAI/Kimina-Prover-Preview" },
+        { model: "Gemini-2.5-pro-preview", solved: 3, compute: "pass@16", url: "https://deepmind.google/technologies/gemini/pro/" },
+        { model: "Deepseek-R1", solved: 2, compute: "pass@16", url: "https://github.com/deepseek-ai/DeepSeek-R1" },
+        { model: "QwQ", solved: 2, compute: "pass@16", url: "https://github.com/QwenLM/QwQ" },
+        { model: "o1", solved: 2, compute: "pass@16", url: "https://openai.com/o1/" },
+        { model: "o3-mini", solved: 2, compute: "pass@16", url: "https://openai.com/index/openai-o3-mini/" },
+        { model: "Claude-3.7-Sonnet-thinking", solved: 0, compute: "pass@16", url: "https://www.anthropic.com/news/claude-3-7-sonnet" },
+        { model: "Goedel-Prover-SFT", solved: 0, compute: "pass@16", url: "https://goedel-lm.github.io/" },
+        { model: "Self-play Theorem Prover", solved: 0, compute: "pass@16", url: "https://github.com/kfdong/STP" },
+        { model: "Leanabell-Prover-GD-RL", solved: 0, compute: "pass@16", url: "https://github.com/Leanabell-LM/Leanabell-Prover" },
+      ];
+
+      const colors = ["#FF4C4C", "#FF7F50", "#FFA500"];
+      const defaultColor = "#4FC3F7";
+
+      const tbody = document.querySelector(".leaderboard-body");
+
+      const medalEmojis = ["🥇", "🥈", "🥉"];
+
+      leaderboardData.forEach((entry, index) => {
+        const tr = document.createElement("tr");
+        const color = colors[index] || defaultColor;
+
+        const rankEmoji = medalEmojis[index] || "";
+        const rankClass = rankEmoji ? `leaderboard-rank ${rankEmoji}` : "";
+
+        tr.innerHTML = `
+              <th class="${rankClass}">${index + 1}</th>
+              <td><a href="${entry.url}" target="_blank" style="color:${color}; text-decoration: underline;">${entry.model}</a></td>
+              <td>${entry.solved}</td>
+              <td>${entry.compute}</td>
+            `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    const renderWithoutSolution = () => {
+      const leaderboardData = [
+        { model: "Kimina-Prover Preview", solved: 7, compute: "pass@16", url: "https://github.com/MoonshotAI/Kimina-Prover-Preview" },
+        { model: "Gemini-2.5-pro-preview", solved: 4, compute: "pass@16", url: "https://deepmind.google/technologies/gemini/pro/" },
+        { model: "Deepseek-R1", solved: 2, compute: "pass@16", url: "https://github.com/deepseek-ai/DeepSeek-R1" },
+        { model: "QwQ", solved: 2, compute: "pass@16", url: "https://github.com/QwenLM/QwQ" },
+        { model: "o1", solved: 2, compute: "pass@16", url: "https://openai.com/o1/" },
+        { model: "Claude-3.7-Sonnet-thinking", solved: 2, compute: "pass@16", url: "https://www.anthropic.com/news/claude-3-7-sonnet" },
+        { model: "o3-mini", solved: 1, compute: "pass@16", url: "https://openai.com/index/openai-o3-mini/" },
+        { model: "Goedel-Prover-SFT", solved: 0, compute: "pass@16", url: "https://goedel-lm.github.io/" },
+        { model: "Self-play Theorem Prover", solved: 0, compute: "pass@16", url: "https://github.com/kfdong/STP" },
+        { model: "Leanabell-Prover-GD-RL", solved: 0, compute: "pass@16", url: "https://github.com/Leanabell-LM/Leanabell-Prover" },
+      ];
+
+      const colors = ["#FF4C4C", "#FF7F50", "#FFA500"];
+      const defaultColor = "#4FC3F7";
+
+      const tbody = document.querySelector(".without-solution-body");
+
+      const medalEmojis = ["🥇", "🥈", "🥉"];
+
+      leaderboardData.forEach((entry, index) => {
+        const tr = document.createElement("tr");
+        const color = colors[index] || defaultColor;
+
+        const rankEmoji = medalEmojis[index] || "";
+        const rankClass = rankEmoji ? `leaderboard-rank ${rankEmoji}` : "";
+
+        tr.innerHTML = `
+              <th class="${rankClass}">${index + 1}</th>
+              <td><a href="${entry.url}" target="_blank" style="color:${color}; text-decoration: underline;">${entry.model}</a></td>
+              <td>${entry.solved}</td>
+              <td>${entry.compute}</td>
+            `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      renderLeaderboard()
+      renderWithoutSolution()
+    });
+
+  </script>
+</body>
+
+</html>
