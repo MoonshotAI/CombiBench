@@ -6,7 +6,7 @@
     <a href="https://moonshotai.github.io/CombiBench/leaderboard.html"><img src="https://img.shields.io/badge/🏆-leaderboard-%23ff8811"></a>
 </p>
 
-CombiBench is the first benchmark focused on combinatorial problems, based on the formal language LEAN4. CombiBench is a manually produced benchmark, including 100 combinatorial mathematics problems of varying difficulty and knowledge levels. It aims to provide a benchmark for evaluating the combinatorial mathematics capabilities of automated theorem proving systems to advance the field. It is released under permissive licenses Apache 2.0 for Lean 4. For problems that require providing a solution first and then proving its correctness, we have referred to the style of PutnamBench.
+CombiBench is the first benchmark focused on combinatorial problems, based on the formal language LEAN4. CombiBench is a manually produced benchmark, including 100 combinatorial mathematics problems of varying difficulty and knowledge levels. It aims to provide a benchmark for evaluating the combinatorial mathematics capabilities of automated theorem proving systems to advance the field. For problems that require providing a solution first and then proving its correctness, we have referred to the style of PutnamBench.
 
 We are hosting a [**leaderboard**](https://moonshotai.github.io/CombiBench/leaderboard.html) and will readily receive evaluation results which are accompanied by a preprint or publication. Please reach out privately at `liujunqi@amss.ac.cn` with any requests for additions to the leaderboard. 
 
