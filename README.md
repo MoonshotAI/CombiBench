@@ -6,7 +6,7 @@
     <a href="https://moonshotai.github.io/CombiBench/leaderboard.html"><img src="https://img.shields.io/badge/🏆-leaderboard-%23ff8811"></a>
 </p>
 
-CombiBench is the first benchmark focused on combinatorial problems, based on the formal language LEAN4. CombiBench is a manually produced benchmark, including 100 combinatorial mathematics problems of varying difficulty and knowledge levels. It aims to provide a benchmark for evaluating the combinatorial mathematics capabilities of automated theorem proving systems to advance the field. For problems that require providing a solution first and then proving its correctness, we have referred to the style of PutnamBench.
+CombiBench is the first benchmark focused on combinatorial problems, based on the formal language Lean 4. CombiBench is a manually produced benchmark, including 100 combinatorial mathematics problems of varying difficulty and knowledge levels. It aims to provide a benchmark for evaluating the combinatorial mathematics capabilities of automated theorem proving systems to advance the field. For problems that require providing a solution first and then proving its correctness, we have referred to the style of [PutnamBench](https://github.com/trishullab/PutnamBench).
 
 We are hosting a [**leaderboard**](https://moonshotai.github.io/CombiBench/leaderboard.html) and will readily receive evaluation results which are accompanied by a preprint or publication. Please reach out privately at `liujunqi@amss.ac.cn` with any requests for additions to the leaderboard. 
 
@@ -16,7 +16,7 @@ We collected all combinatorics problems from the official IMO problems since 200
 
 | Source           | Count          | 
 | ---------------- | -------------- | 
-| Easy             | 10             |
+| Hackmath         | 10             |
 | Brualdi's book   | 42             |
 | IMO              | 36             |
 | APMO             | 2              |
@@ -27,6 +27,8 @@ We collected all combinatorics problems from the official IMO problems since 200
 | BXMO             | 1              |
 | USAMO            | 1              |
 
+
+Note : The complete proofs of Problem 3 and Problem 5 from IMO 2024 have already been formalized in [mathlib4/Archive/Imo2024Q3](https://leanprover-community.github.io/mathlib4_docs/Archive/Imo/Imo2024Q3.html) and [mathlib4/Archive/Imo2024Q5](https://leanprover-community.github.io/mathlib4_docs/Archive/Imo/Imo2024Q5.html). Therefore, we directly refer to the statements of these problems, along with the necessary definitions used in the statements. We are very grateful to Joseph Myers, the author of these two problems. We also appreciate his suggestions on the formalization of our problems.
 
 ## Requirements
 
