@@ -1,5 +1,6 @@
 import Mathlib
 
+
 structure IsMagicSquare {n : ℕ} (M : Matrix (Fin n) (Fin n) ℕ) : Prop where
   mem : ∀ i j, M i j ∈ Finset.Icc 1 (n * n)
   pairwise : ∀ i j i' j', i ≠ i' ∨ j ≠ j' → M i j ≠ M i' j'

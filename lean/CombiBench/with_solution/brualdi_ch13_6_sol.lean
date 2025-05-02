@@ -2,6 +2,7 @@ import Mathlib
 
 universe u
 
+-- TODO this definition doesn't seem right. If a Digraph doesn't have self-edges, it can still have a walk, but this definition requires each walk to start with a self edge.
 -- a walk is a sequence of edges such that the end of the `i`-th edge is the start of the `i+1`-th edge
 inductive Digraph.Walk {V : Type u} (G : Digraph V) : V → V → Type u
   | nil {u : V} (h : G.Adj u u) : Digraph.Walk G u u

@@ -10,12 +10,15 @@ structure AliceStrategy where
   N : ℕ
   -- A natural number less than `N`.
   x : Fin N
+  -- TODO: This should say: For each history and question, an answer.
   -- For each history, a question, in the form of a set of natural numbers.
   nextAnswer : List (Set (Fin N) × Bool) → Set (Fin N) → Bool
 
 -- A strategy for Bob in the liar guessing game consists of:
 structure BobStrategy where
   -- For each history, a question, in the form of a set of natural numbers.
+  -- TODO: How does bob specify when he is to stop asking and guess?
+  -- I think he is allowed to dynamically change the number of questions he asks.
   nextQuestion N : List (Set (Fin N) × Bool) → Set (Fin N)
   -- For each history, a guess as to what `x` is, in the form of a small set of natural numbers.
   guess N : List (Set (Fin N) × Bool) → Finset (Fin N)

@@ -6,6 +6,7 @@ def formsDomino (n k : ℕ) (i j : Fin n × Fin (2 * k)) : Bool :=
   -- i and j are on the same column and (i is above j or j is above i)
   (i.2.val = j.2.val ∧ (i.1.val + 1 = j.1.val ∨ j.1.val + 1 = i.1.val))
 
+-- TODO This definition will consider as distinct covers where the dominoes are mapped from `d` in different orders.
 structure PerfectCover (n k : ℕ) where
   -- the collections of tiles
   d : Fin (n * k) → ((Fin n × Fin (2 * k)) × (Fin n × Fin (2 * k)))

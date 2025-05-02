@@ -10,3 +10,14 @@ Prove that a symmetric, idempotent Latin square has odd order.
 -/
 theorem brualdi_ch10_60 {n : ℕ} (L : LatinSquare n) :
     IsIdempotentElem L.1 ∧ L.1.IsSymm → Odd n := by sorry
+
+-- TODO seems n needs to be positive
+theorem counterexample : ∃ (L : LatinSquare 0), L.1.IsSymm ∧ IsIdempotentElem L.1 := by
+  use LatinSquare.mk (!![]) (by simp) (by simp)
+  simp
+  unfold IsIdempotentElem
+  unfold Matrix.IsSymm
+  simp
+  ext x y
+  exfalso
+  apply finZeroElim x

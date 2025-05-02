@@ -23,3 +23,6 @@ Let $n$ and $k$ be positive integers with $k \geq n$ and $k - n$ an even number.
 -/
 theorem imo_2008_p5 (n k : ℕ+) (hnk : k ≥ n) (hnk' : Even (k - n)) :
     N n k / M n k = ((fun n k => 2 ^ (k.1 - n.1)) : ℕ+ → ℕ+ → ℝ ) n k := by sorry
+
+-- TODO Note that a difference of identical PNats is truncated to 1, which is Odd, not 0 which is even. I think this means we need to cast to ℕ before subtracting
+#eval (2 : ℕ+) - (2 : ℕ+) -- 1

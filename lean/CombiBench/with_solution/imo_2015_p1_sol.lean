@@ -1,5 +1,6 @@
 import Mathlib
 
+-- TODO this is the wrong distance, we need to use EuclideanSpace
 def balanced (S : Set (ℝ × ℝ)) : Prop :=
   ∀ A ∈ S, ∀ B ∈ S, A ≠ B → (∃ C ∈ S, dist A C = dist B C)
 

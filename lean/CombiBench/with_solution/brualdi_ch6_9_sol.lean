@@ -2,7 +2,7 @@ import Mathlib
 
 open Finset
 
-
+-- TODO missing the sum to 20 condition.
 /--
 Determine the number of integral solutions of the equation $x_{1}+x_{2}+x_{3}+x_{4}=20$ that satisfy $1 \leq x_{1} \leq 6,0 \leq x_{2} \leq 7,4 \leq x_{3} \leq 8,2 \leq x_{4} \leq 6$.
 -/
