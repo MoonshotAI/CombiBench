@@ -1,6 +1,6 @@
 import Mathlib
 
-
+-- TODO: The condition for solution should be one hypothesis, otherwise it's vacuously a contradiction between h_sols and h_women. Also, typo "qroup" in the problem statement
 /--
 A ferry with a capacity of 10 people takes a group of 13 men and 7 women across a river. Find the number of ways in which the qroup may be taken across the if all women go on the first group.
 -/

@@ -7,6 +7,7 @@ def General_position (L : Finset (ℝ × ℝ × ℝ)) : Prop :=
     (¬ ∃ (p : ℝ × ℝ), l1.1 * p.1 + l1.2.1 * p.2 + l1.2.2 = 0 ∧
       l2.1 * p.1 + l2.2.1 * p.2 + l2.2.2 = 0 ∧ l3.1 * p.1 + l3.2.1 * p.2 + l3.2.2 = 0))
 
+--TODO I think this definition lets segments be finite regions, but I don't think it should.
 def finite_regions (S : Set (ℝ × ℝ)) (L : Finset (ℝ × ℝ × ℝ)) : Prop :=
   S ≠ ∅ ∧ (∃ a b : ℝ, ∀ p ∈ S, |p.1| ≤ a ∧ |p.2| ≤ b) ∧ (∀ p ∈ S, ∀ q ∈ S, p ≠ q → ∀ l ∈ L,
     Real.sign (l.1 * p.1 + l.2.1 * p.2 + l.2.2) = Real.sign (l.1 * q.1 + l.2.1 * q.2 + l.2.2))

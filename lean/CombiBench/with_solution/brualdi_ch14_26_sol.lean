@@ -33,4 +33,5 @@ noncomputable instance : Fintype Necklaces := by
 /--
 How many different necklaces are there that contain four red and three blue beads?
 -/
+-- TODO this formalization doesn't reference 4 or 3?
 theorem brualdi_ch14_26 : Fintype.card Necklaces = ((15) : ℕ ) := by sorry

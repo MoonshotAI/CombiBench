@@ -10,18 +10,19 @@ structure Index (n : ℕ+) where
   le_col : 1 ≤ col
   col_le : col ≤ row
 
---     x
---   q x
+--   x
+--  q x
 -- p x x
 def Index.atBottomLeft {n : ℕ+} (p q : Index n) : Prop :=
   q.row + 1 = p.row ∧ q.col = p.col
 
---     x
---   q x
+--   x
+--  q x
 -- x p x
 def Index.atBottomRight {n : ℕ+} (p q : Index n) : Prop :=
   q.row + 1 = p.row ∧ q.col + 1 = p.col
 
+-- TODO it seems to me the paths should only go downward, and this has them going upward, though perhaps this is not a problem because the path is length n?
 @[simps]
 def triangleGraph (n : ℕ+) : Digraph (Index n) where
   Adj p q :=

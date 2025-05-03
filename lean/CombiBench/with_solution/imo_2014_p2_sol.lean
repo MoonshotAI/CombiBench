@@ -13,5 +13,6 @@ Let $n\ge2$ be an integer. Consider an $n\times n$ chessboard consisting of $n^2
 theorem imo_2014_p2 (n : ℕ) (hn : n ≥ 2) :
     IsGreatest {(k : ℕ) | (k > 0) ∧ ∀ r : peaceful_rooks n, ∃ i j : Fin n,
     i.val + k - 1 < n ∧ i.val + k - 1 < n ∧
+    -- TODO should be m.val < k ∧ n.val < k → r.carrier (i + m) (j + n) = false
     ∀ m n, m.val < k ∧ n.val < k ∧ r.carrier (i + m) (j + n) = false}
     (((fun n => ⌈√n⌉₊ - 1) : ℕ → ℕ ) n) := by sorry

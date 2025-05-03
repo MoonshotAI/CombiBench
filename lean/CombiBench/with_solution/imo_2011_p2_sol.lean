@@ -23,6 +23,10 @@ variable {n} [Fintype n] [DecidableEq n]
 noncomputable instance : Module.Oriented ℝ (EuclideanSpace ℝ n) n where
   positiveOrientation := Basis.orientation (Pi.basisFun ℝ n)
 
+-- TODO I think something is wrong about this. We are saying the oriented angle p0 p1 p2 is
+-- maximal. but the p2 point on the windmill can be on either the same side
+-- or the other side of the p1 pivot as p0, so it seems like the angle could be either high or low.
+-- I feel we should be reducing to pi instead of 2pi.
 structure IsWindmillProcess (S : Set (EuclideanSpace ℝ (Fin 2)))
     (f : ℕ → EuclideanSpace ℝ (Fin 2)) where
   forall_mem n : f n ∈ S

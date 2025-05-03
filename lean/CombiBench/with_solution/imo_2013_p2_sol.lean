@@ -8,6 +8,8 @@ structure Colombian_config : Type where
   (h_no_collinear : ∀ p ∈ R ∪ B, ∀ q ∈ R ∪ B, ∀ r ∈ R ∪ B, p ≠ q → p ≠ r → q ≠ r →
     ¬ ∃ t : ℝ, t ≠ 0 ∧ t * (q.1 - p.1) = (r.1 - p.1) ∧ t * (q.2 - p.2) = (r.2 - p.2))
 
+-- TODO some lines have different representations in this type (e.g. 1x + 2y = 3 is the same as 2x + 4y = 6)
+-- I think this should be redone with EuclideanSpace
 def Good_arrange (C : Colombian_config) (L : Finset (ℝ × ℝ × ℝ)) : Prop :=
   (∀ l ∈ L, l.1 ≠ 0 ∨ l.2.1 ≠ 0) ∧
   (∀ p ∈ C.R ∪ C.B, ∀ l ∈ L, l.1 * p.1 + l.2.1 * p.2 + l.2.2 ≠ 0) ∧

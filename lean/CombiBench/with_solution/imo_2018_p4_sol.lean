@@ -15,6 +15,7 @@ abbrev Game := Site → State
 -- initially the all sites are unoccupied
 def initialGame : Game := fun _ => State.unoccupied
 
+-- TODO Euclidean distance needed
 def valid_Amy_move (x : Site) (g : Game) : Prop :=
   g x = State.unoccupied ∧
   ∀ y, g y = State.red → dist x.asPoint y.asPoint ≠ √5

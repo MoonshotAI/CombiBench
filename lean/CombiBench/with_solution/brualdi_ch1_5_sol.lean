@@ -8,6 +8,7 @@ def formsDomino (i j : Board) : Bool :=
   -- i and j are on the same column and (i is above j or j is above i)
   (i.2.val = j.2.val ∧ (i.1.val + 1 = j.1.val ∨ j.1.val + 1 = i.1.val))
 
+-- TODO Seems wrong since this definition will consider as distinct covers where the dominoes are assigned in different orders.
 structure PerfectCover where
   -- the collections of tiles
   tiles : Fin 6 → (Board × Board)

@@ -3,6 +3,7 @@ import Mathlib
 /--
 Let $A$ be a matrix with $n$ columns, with integer entries taken from the set $S=\{1,2, \ldots, k\}$. Assume that each integer $i$ in $S$ occurs exactly $n r_{i}$ times in $A$, where $r_{i}$ is an integer. Prove that it is possible to permute the entries in each row of $A$ to obtain a matrix $B$ in which each integer $i$ in $S$ appears $r_{i}$ times in each column.
 -/
+-- TODO I think this is wrong. The condition on the number of times each entry occurs guarantees that it is a multiple of n, but this isn't in the hypotheses. Instead, it should just be formalized with r as an argument, like in the natural language statement.
 theorem brualdi_ch9_13 (n m : ℕ) (k : ℕ+) (A : Matrix (Fin m) (Fin n) ℕ)
     (hA : ∀ i j, A i j ∈ Finset.Icc 1 k.1) :
     ∃ (rσ : Fin m → Equiv.Perm (Fin n)), ∀ j : Fin n, ∀ i ∈ Set.Icc 1 k.1,

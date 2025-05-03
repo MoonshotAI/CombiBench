@@ -7,6 +7,9 @@ An integer $N \ge 2$ is given. A collection of $N(N + 1)$ soccer players, no two
 -/
 theorem imo_2017_p5 (N : ℕ) (h_N : N ≥ 2) (height : Perm (Fin (N * (N + 1)))) :
     ∃ kept : Fin (2 * N) ↪o Fin (N * (N + 1)),
+    -- For any i, j, such that the ith kept player in the line has an even number kept players shorter than them
     ∀ i j, Even #{l | height (kept l) < height (kept i)} →
-      (∀ k, height (kept i) < height (kept k) ↔ height (kept j) ≤ height (kept k)) →
-      (∀ k, kept i < kept k ↔ kept j ≤ kept k) ∨ (∀ k, kept j < kept k ↔ kept i ≤ kept k) := by sorry
+      -- and the jth kept player has one more kept player shorter than them
+      #{l | height (kept l) < height (kept i)} + 1 = #{l | height (kept l) < height (kept j)} →
+        -- There is no kept player between the ith and jth kept players
+         (¬ ∃ k, (i < k ∧ k < j) ∨ (j < k ∧ k < i)) := by sorry

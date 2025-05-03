@@ -1,5 +1,6 @@
 import Mathlib
 
+-- TODO I think this set is all of the cardinalities for which such a coloring can be found, bot the set of cardinalities such that such a coloring must exist
 def colored_card : Finset ℕ :=
   (Finset.image (fun s => s.card)
   (@Finset.univ (Finset (Fin 1000 × Fin 1000)) _ |>.filter
