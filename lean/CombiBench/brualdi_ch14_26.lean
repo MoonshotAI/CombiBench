@@ -2,6 +2,7 @@ import Mathlib
 
 structure PreNecklaces where
   c : Fin 7 → Fin 2
+  color : ∃ S : Finset (Fin 7), S.card = 4 ∧ ∀ i ∈ S, c i = 0
   deriving Fintype
 
 def myDihedralGroup (n : ℕ) : Subgroup (Equiv.Perm (Fin n)) :=
