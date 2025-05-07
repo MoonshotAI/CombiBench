@@ -3,6 +3,7 @@ import Mathlib
 abbrev sortedList (n : ℕ) := (List.range (2 * n))|>.map
   (fun i ↦ if i < n then 0 else 1)
 
+-- Returns the indices of the first and last elements of the longest chain containing the kth coin
 def checkList (k : ℕ) : List ℕ → ℕ × ℕ := fun L ↦ Id.run do
   let mut i0 := k - 1
   let mut i1 := k - 1

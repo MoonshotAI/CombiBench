@@ -22,7 +22,7 @@ def op21 : Boxes → Boxes
   | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1 - 1, b3, b2, b4, b5, b6⟩
 
 def op22 : Boxes → Boxes
-  | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1, b2 - 4, b4, b3, b5, b6⟩
+  | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1, b2 - 1, b4, b3, b5, b6⟩
 
 def op23 : Boxes → Boxes
   | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1, b2, b3 - 1, b5, b4, b6⟩
@@ -53,3 +53,10 @@ Each of the six boxes $B_1$, $B_2$, $B_3$, $B_4$, $B_5$, $B_6$ initially contain
 -/
 theorem imo_2010_p5 : imo_2010_p5_solution = (∃ seq : List OP,
     (seq.map apply_op).foldl (· ∘ ·) id init = ⟨0, 0, 0, 0, 0, 2010 ^ (2010 ^ 2010)⟩) := by sorry
+
+/--
+Let x,y be 32-bit bit-vectors. Prove the equivalence of the following two expressions: $7\cdot x-5\cdot y-2\cdot (x\oplus y)-6\cdot \lnot (x\land \lnot x)-5\cdot (x\lor y)-2\cdot \lnot (x\land y)-1\cdot (x\lor \lnot y)+4\cdot \lnot y-7\cdot \lnot (x\oplus y)+13\cdot \lnot (x\lor y)+21\cdot \lnot (x\lor \lnot y)+17\cdot (x\land y)$, $-5\cdot (x\land \lnot y)+1\cdot \lnot x$
+-/
+theorem mba_challenge_6f99807f (x y : BitVec 32) :  7#32 * x - 5#32 * y - 2#32 * (x ^^^ y) - 6#32 * ~~~(x &&& ~~~x) - 5#32 * (x ||| y) - 2#32 * ~~~(x &&& y) - 1#32 * (x ||| ~~~y) + 4#32 * ~~~y - 7#32 * ~~~(x ^^^ y) + 13#32 * ~~~(x ||| y) + 21#32 * ~~~(x ||| ~~~y) + 17#32 * (x &&& y) = -5#32 * (x &&& ~~~y) + 1#32 * ~~~x := by
+  simp
+  sorry

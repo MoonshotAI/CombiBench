@@ -52,4 +52,4 @@ Let $n$ be a positive integer. A Japanese triangle consists of $1 + 2 + \dots + 
 -/
 theorem imo_2023_p5 (n : ℕ+) :
     IsGreatest {k | ∀ (jt : JapaneseTriangle n), ∃ (p : NinjaPath jt), k ≤ p.countRed}
-    (((fun n => ⌊Real.log n⌋₊ + 1) : ℕ+ → ℕ ) n) := by sorry
+    (((fun n => ⌊Real.logb 2 n⌋₊ + 1) : ℕ+ → ℕ ) n) := by sorry

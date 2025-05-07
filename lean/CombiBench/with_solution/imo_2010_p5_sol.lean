@@ -22,7 +22,7 @@ def op21 : Boxes → Boxes
   | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1 - 1, b3, b2, b4, b5, b6⟩
 
 def op22 : Boxes → Boxes
-  | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1, b2 - 4, b4, b3, b5, b6⟩
+  | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1, b2 - 1, b4, b3, b5, b6⟩
 
 def op23 : Boxes → Boxes
   | ⟨b1, b2, b3, b4, b5, b6⟩ => ⟨b1, b2, b3 - 1, b5, b4, b6⟩
