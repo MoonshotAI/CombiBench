@@ -3,7 +3,8 @@ import Mathlib
 abbrev Site := Fin 20 × Fin 20
 
 -- when we see them as real points, their coordinates become within 1,...,20
-def Site.asPoint (s : Site) : ℝ × ℝ := (s.1.1 + 1, s.2.1 + 1)
+def Site.asPoint (s : Site) : EuclideanSpace ℝ (Fin 2) :=
+  fun x => if x = 0 then (s.1.val + 1) else (s.2.val + 1)
 
 inductive State
   | red
