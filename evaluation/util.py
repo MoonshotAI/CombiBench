@@ -46,6 +46,10 @@ def extract_code_and_answer_from_text(
     lean4_code = lean4_codes[-1].strip()
     lean4_code = remove_comments(lean4_code)
 
+    if not all(formal_statement in lean4_code for formal_statement in formal_statements):
+        logger.warning('The formal statements are not found in the Lean 4 code.')
+        return None, None
+
     if 'axiom' in lean4_code:
         logger.debug("'axiom' is not allowed.")
         return None, None
