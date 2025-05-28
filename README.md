@@ -4,6 +4,7 @@
     <a href="https://huggingface.co/datasets/AI-MO/CombiBench"><img src="https://img.shields.io/badge/🤗-huggingface-FFD21E"></a>
     <a href="https://moonshotai.github.io/CombiBench/"><img src="https://img.shields.io/badge/%F0%9F%A4%96-website-87CEEB"></a>
     <a href="https://moonshotai.github.io/CombiBench/leaderboard.html"><img src="https://img.shields.io/badge/🏆-leaderboard-%23ff8811"></a>
+    <a href="https://arxiv.org/abs/2505.03171"><img src="https://img.shields.io/badge/arXiv-2505.03171-b31b1b.svg"></a>
 </p>
 
 CombiBench is the first benchmark focused on combinatorial problems, based on the formal language Lean 4. CombiBench is a manually produced benchmark, including 100 combinatorial mathematics problems of varying difficulty and knowledge levels. It aims to provide a benchmark for evaluating the combinatorial mathematics capabilities of automated theorem proving systems to advance the field. For problems that require providing a solution first and then proving its correctness, we have referred to the style of [PutnamBench](https://github.com/trishullab/PutnamBench).
