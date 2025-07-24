@@ -9,10 +9,11 @@
     // LEAN4 VERIFIER CONFIGURATION
     lean_server_url: 'http://localhost:12332',
     lean_server_api_key: null,
+    lean_server_timeout: 60,
 
     // LLM SERVER CONFIGURATION
     llm_client_type: "OpenAI",  // OpenAI, Claude, Gemini or TogetherAI
-    llm_server_url: "http://localhost:12345",
+    llm_server_url: "http://localhost:12345/v1",
     llm_server_api_key: "EMPTY",
     llm_name: "Kimina-Prover-Preview-Distill-1.5B",
 
@@ -23,9 +24,9 @@
 
     // PROMPT
     system_prompt: "You are an expert in mathematics and proving theorems in Lean 4.",
-    prompt_template: "Complete the following code and prove the theorem in Lean 4. The line where `solution` is located can contain literals, but should not directly define the thing that needs to be proved in the `theorem`. The output should strictly maintain the original structure and format of the code.\n```lean4\n{formal_statement}\n```",
+    prompt_template: "Think about and solve the following problems step by step in Lean 4.\n```lean4\n{formal_statement}\n```",
 
     // PARALLEL SETTINGS
-    n_generation_processes: 32,
+    n_generation_processes: 128,
     n_verification_processes: 10,
 }

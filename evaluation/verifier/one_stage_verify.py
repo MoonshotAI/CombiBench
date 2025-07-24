@@ -1,7 +1,8 @@
-from evaluation.client.lean_client import Lean4Client, verify
-from evaluation.util import extract_code_and_answer_from_text
-from evaluation.constant import ErrorType
 from typing import Any
+
+from evaluation.client.lean_client import Lean4Client, verify
+from evaluation.constant import ErrorType
+from evaluation.util import extract_code_and_answer_from_text
 
 
 def one_stage_verify(
@@ -9,6 +10,7 @@ def one_stage_verify(
     formal_statement: str | list[str],
     lean4_client: Lean4Client,
     ground_truths: list[str] | None = None,
+    timeout: int = 60,
 ) -> tuple[ErrorType, dict[str, Any], str, dict[str, str]]:
     """verify a proof and its answers in a single stage.
 
@@ -31,12 +33,10 @@ def one_stage_verify(
             - dict[str, str]: The extracted answers
     """
 
-    if isinstance(formal_statement, str):
-        formal_statement = formal_statement.split('\n\n')
-
     lean4_code, answers = extract_code_and_answer_from_text(
         text=text,
         formal_statements=formal_statement,
+        allow_no_header=True,
     )
     lean_feedback = {}
 
@@ -46,18 +46,10 @@ def one_stage_verify(
     if ground_truths is not None and answers is None:
         return ErrorType.ANSWER_NOT_MATCHED, lean_feedback, lean4_code, answers
 
-    formal_statement = '\n\n'.join(formal_statement).strip()
-
-    # is_proof_valid, lean_feedback = verify(lean4_code, lean4_client)
-    # if not is_proof_valid:
-    #     return ErrorType.PROOF_FAILED, lean_feedback, lean4_code, answers
-
-    for tag, answer in answers.items():
-        formal_statement += f'\nexample: {tag} = {answer} := by rfl\n'
-
-    is_answers_valid, lean_feedback = verify(lean4_code, lean4_client)
+    for tag, ground_truth in zip(answers.keys(), ground_truths):
+        lean4_code += f"\n\nexample: {tag} = {ground_truth} := by\n  try rfl\n  try norm_num"
+    is_answers_valid, lean_feedback = verify(lean4_code, lean4_client, timeout=timeout)
     if is_answers_valid:
         return ErrorType.SUCCESS, lean_feedback, lean4_code, answers
     else:
-        # return ErrorType.WRONG_ANSWERS, lean_feedback, lean4_code, answers
         return ErrorType.PROOF_FAILED, lean_feedback, lean4_code, answers

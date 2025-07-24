@@ -41,14 +41,6 @@ Install the Python dependencies:
 pip install -e .
 ```
 
-or
-
-```
-uv venv .venv --prompt combibench
-source .venv/bin/activate
-uv sync
-```
-
 ## Usage
 ### Setup a Lean Server
 
@@ -67,16 +59,23 @@ Refer to `evaluation/config/template.json5` to configure the dataset, lean serve
 To run one-stage Fine-Eval:
 
 ```
-python evaluation/online_one_stage.py --config evaluation/config/template.json5
+python evaluation/cli.py online-one-stage -c evaluation/config/template.json5
 ```
 
 To run two-stage Fine-Eval:
 
 ```
-python evaluation/online_two_stage.py --config evaluation/config/template.json5
+python evaluation/cli.py online-two-stage -c evaluation/config/template.json5
 ```
 
 Note that both evaluation methods are compatible with theorem proving tasks and fill-in-the-blank tasks.
+
+If you use `uv`, you can run the following command to quick evaluate:
+```
+uv run evaluation/cli.py online-two-stage -c evaluation/config/template.json5
+```
+
+More command line options can be found by running `python evaluation/cli.py <COMMAND> --help`.
 
 ## 🙌 Contributing
 
