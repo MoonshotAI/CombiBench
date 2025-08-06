@@ -1,0 +1,37 @@
+{
+    // DATASET CONFIGURATION
+    dataset_name: "AI-MO/GeometryLeanBench", // HF dataset id
+    split: "train", // list of splits to concatenate
+    index_column: "name", // column to use as index
+    formal_column: "formal_statement", // columns to sum to formal statement
+    ground_truths_column: null, ,     // null for theorem proving task
+
+    // LEAN4 VERIFIER CONFIGURATION
+    lean_server_url: 'http://127.0.0.1:12332',
+    lean_server_timeout: 180,
+    lean_server_api_key: null,
+
+    // LLM SERVER CONFIGURATION
+    llm_client_type: "OpenAI",  // OpenAI, Claude, Gemini or TogetherAI
+    llm_server_url: "http://localhost:12345/v1",
+    llm_server_api_key: "EMPTY",
+    llm_name: "Kimina-Prover-Preview-Distill-1.5B",
+    llm_server_timeout: 7200,
+
+    // SAMPLING CONFIGURATION
+    n: 1,
+    temperature: 0.0,
+    max_tokens: 64000,
+
+    system_prompt: "You are an expert in mathematics and proving theorems in Lean 4.",
+    // Prompt Template (a path or a prompt string)
+    prompt_template: "./config/extra_prompt/lean_geo_prompt.txt",
+
+    // extra settings
+    return_raw_text: true,
+    check_formal_statements: false,
+
+    // PARALLEL SETTINGS
+    n_generation_processes: 50,
+    n_verification_processes: 10,
+}

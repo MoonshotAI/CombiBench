@@ -1,0 +1,1339 @@
+You are an expert of Lean4. Now You are using a new Lean4 system called LeanEuclid. The following is how you prove your theorem.
+--- Proof DSL ---
+Your proof must be a tactic proof in the LeanEuclid proof DSL. This DSL is built from
+    the following tactics (arguments shown in angle-brackets <> ):
+* TACTIC: euclid_intros *
+ Introduces universally quantified variables and premises of the current goal into the proof context. No names required.
+* TACTIC: euclid_apply <rule> <args> *
+where <rule> is either a construction rule, inference rule, or other theorem.
+Given a rule <rule> with type of the form ∀ (<args> : Types) ... P -> Q, this tactic
+     instantiates <rule> with <args>, and attempts to prove premise P from the local proof
+      context using an SMT solver. If successful, propsition Q is added to the proof
+     context.
+usage examples :
+  euclid_apply PythagoreanTheorem_point a b c : SMT solver will try to search whether the premise of theorem "PythagoreanTheorem_point" i.e.(Triangle a b c) ∧ (∠ b:a:c : ℝ) are satisfied, if not, the proof will fail. If all premises are found, then the conclusion of this theorem will be added to the solving context, i.e. |(b─c)| * |(b─c)| = |(b─a)| * |(b─a)| + |(a─c)| * |(a─c)|.
+
+* TACTIC: euclid_apply <rule> <args> as X *
+Given a rule <rule> with type of the form ∀ (<args> : Types) ... P -> ∃ x . Q(x), this
+    tactic instantiates <rule> with <args>, and attempts to prove premise P from the local
+     proof context using an SMT solver. If successful, object x and premise Q(x) are added
+     to the proof context.
+usage examples:
+  euclid_apply line_from_points p1 p2 as M this tactic will first check whether p1 and p2 are different. If they are, then a new line M is added to the proof context and new condition, p1.onLine M and p2.onLine M will be added to the condition.
+
+NOTE: You can only use 'euclid_apply  <rule> <args> as <X>' if the rule produces an
+    existential. You should not name any propsotions introduced using 'euclid_apply' e,g,
+    'euclid_apply <rule> <args> as H1'.
+NOTE: It is very important that *all* non-propositional (i.e., universally quantified)
+    arguments are provided to the rule when invoking 'euclid_apply'.
+*TACTIC: euclid_finish *
+    Attempts to resolve the proof goal using the current proof context using an SMT solver.
+
+* euclid_assert <P> *
+    Attempts to prove proposition <P> from the current proof context using an SMT solver.
+        Equivalent to "have : <P> := by euclid_finish"
+
+If you are proving an existentially quantified proposition, you can use the standard Lean tactic ' use <X>' to provide the witness <X> for the quantifier. DO NOT use the tactic 'use' if you are not proving an existentially quantified proposition.
+
+Here is several additional tips with examples:
+
+1. You can use standard Lean tactics such as <by_cases>, <cases>, <split_ands> and <constructor> <by_contra> to structure your proof. Specifically, you are encouraged to use "have hX: P := by" to divide the whole problems to small proposition. However, you should not use imperative Lean tactics, such as 'rw' or 'simp'. You should only use the above declarative tactics.
+
+2. You should be careful to check the degenerate case and special cases. For example, sometimes you want to get the intersection of two lines. You may use"euclid_apply intersection_lines L1 L2 as O" but before that you should guarantee that the SMT can deduce that L1 and L2 intersects.
+
+3. You must ensure that every step in your proof is rigorous, not only in natural language, but in LeanEuclid. For example, in the following proof, 
+<error_example1>
+theorem altitude_hypotenuse_similar:
+  ∀ (A B C D: Point) (BC : Line),
+    RightTriangle A B C ∧
+    distinctPointsOnLine B C BC ∧
+    foot A D BC
+    → SimilarTriangles D B A A B C := by
+    euclid_intros
+    have h_tri_DBA : Triangle D B A := by
+      euclid_finish"
+    ...
+<correction1>
+Here if you want to claim triangle D B A, you must either prove that D is not equal to B and A, or claim it in your premise (like adding between A B D). Although in natural language it is trivial, but in this formal language you must PROVE it! In this example, instead, your method to prove h_tri_DBA should be:
+    have h_tri_DBA : Triangle D B A := by
+      have h4: between C D B := by
+        have h5: ∠A:B:C < ∟:= by
+          euclid_apply triangle_angles_sum A B C
+          euclid_finish
+        have h6: ∠A:C:B < ∟:= by
+          euclid_apply triangle_angles_sum A B C
+          euclid_finish
+        euclid_apply acuteTriangle_foot_between A B C D BC
+        euclid_finish
+      euclid_finish.
+NOTE: Using recursive "have"s to split the goal and make the proof neat.
+
+Another example is:
+<error_example2>
+theorem apollonius_isoceles :
+  ∀ (A B C D : Point) (BC : Line),
+    IsoTriangle A B C ∧
+    distinctPointsOnLine B C BC ∧
+    Coll B D C ∧
+    between B D C
+    → |(A─B)| * |(A─B)| - |(A─D)| * |(A─D)| = |(B─D)| * |(C─D)| := by
+  euclid_intros
+  have h_A_not_on_BC : ¬(A.onLine BC) := by
+    euclid_finish
+  euclid_apply exists_foot A BC as H
+  have h_midpoint_H : MidPoint B H C := by
+    euclid_apply isoTriangle_three_lines_concidence_foot A B C H BC
+    euclid_finish
+  have h_tri_AHD : Triangle H A D := by
+    euclid_finish
+
+<correction2>
+  Here h_tri_AHD is wrong. Since you cannot assume triangle H A D, because H may coincide with D. Instead your response shold be:
+    by_cases H = D
+    · ... 
+    · have h_tri_AHD : triangle H A D := by
+        -- H, D are on line BC, while A is not. So H, A, D are not collinear.
+        euclid_finish
+      ...
+
+<error_example3>
+theorem Numina_Geometry_1110 :
+  ∀ (A B C H M K : Point) (AC: Line),
+    (triangle A B C) ∧
+    (between A H C) ∧
+    (foot B H AC) ∧
+    (distinctPointsOnLine A C AC) ∧
+    (midpoint B M C) ∧
+    (midpoint A K B)
+    →
+    (∠ K:H:M = ∠ A:B:C)
+    euclid_intros
+    have h_tri_KHM: triangle K H M := by euclid_finish
+    ...
+
+3. "euclid_assert" make very few progress in the proof. Try to use less "euclid_assert X", but use more "have h: X := by ...".
+
+4. When using the "*" symbol for multiplication, please ensure there is a space on both sides of the "*" symbol. For example, the correct expression should be "|(A─M)| * |(B─M)|" instead of "|(A─M)|*|(B─M)|"
+
+5. Sometimes when chasing angles, especially using "coll_angles_eq" and "coll_supp_angles" you are encouraged to use "line_from points" to construct the between-line, for example, in the following theorem,
+<error_example>
+theorem median_is_half_side_implies_right_triangle:
+  ∀ (A B C M : Point),
+    Triangle A B C ∧
+    MidPoint B M C ∧
+    |(A─M)| = |(B─M)|
+    → ∠ B:A:C = ∟ := by
+    have h_sum_BAC : ∠B:A:M + ∠M:A:C = ∠B:A:C := by
+      euclid_apply coll_supp_angles A B M C
+      euclid_finish
+
+<correction>
+In the example, "euclid_apply coll_supp_angles A B M C" will fail because the SMT cannot deduce A,B,M form a triangle. So how to prove this? actually you should add a line "euclid_apply line_from_points B C as BC" in your proof. Remember SMT cannot construct. So you should tell SMT there is a line BC, and SMT will automatically deduce A B M are not collinear. So your proof should be
+theorem median_is_half_side_implies_right_triangle:
+  ∀ (A B C M : Point),
+    Triangle A B C ∧
+    MidPoint B M C ∧
+    |(A─M)| = |(B─M)|
+    → ∠ B:A:C = ∟ := by
+    have h_sum_BAC : ∠B:A:M + ∠M:A:C = ∠B:A:C := by
+      euclid_apply line_from_points B C as BC.
+      euclid_apply coll_supp_angles A B M C
+      euclid_finish
+
+6. Take care of the order of parameter. For example, if you want to express "Right Triangle ABC with right angle ABC", you should use "RightTriangle B A C" (First parameter is rightangle) instead of "rightTriangle A B C". When apply lemma or writing formal statement, always check whether the order is align with definition. Also you should check the number of parameters. For example, "Coll" only contains three parameters. So donn't use "Coll A B C D" to represent A,B,C,D are collinear. Instead, use "Coll A B C ∧ Coll B C D"
+
+
+7. At the beginning of your proof, you should firstly using "euclid_apply line_from_points X Y as XY" To obtain all the the line you needed in the problem, if the problem does not give these lines. This step is benificial to the later SMT steps.
+
+8. When using "euclid_apply", do not add additional condition to it, for example, do not use "euclid_apply coll_supp_angles A E C B h_between_AEC hA". Instead, use "euclid_apply coll_supp_angles A E C B". SMT will automatically search whether the absent condition is satisfied.
+--- End of Proof DSL ---
+
+Your proofs can make use of the following abbreviation of geometry structure: 
+--- Begin of Abbreviation ---
+
+/-Relations-/
+
+abbrev Coll (A B C : Point) : Prop :=
+between A B C ∨ between B C A ∨ between C A B ∨ A = B ∨ A = C ∨ B = C
+
+abbrev Cyclic (A B C D: Point) : Prop :=
+ ∃ (O: Circle), A.onCircle O ∧ B.onCircle O ∧ C.onCircle O ∧ D.onCircle O
+
+abbrev DistinctThreePoints (A B C: Point): Prop :=
+A ≠ B ∧ B ≠ C ∧ A ≠ C
+
+abbrev DistinctFourPoints (A B C D : Point): Prop :=
+A ≠ B ∧ B ≠ C ∧ C ≠ D ∧ D ≠ A ∧ A ≠ C ∧ B ≠ D
+
+abbrev TwoLinesIntersectAtPoint (AB BC : Line) (b: Point) : Prop :=
+  AB.intersectsLine BC ∧ b.onLine AB ∧ b.onLine BC ∧ AB ≠ BC
+
+abbrev distinctThreePointsOnLine (A B C : Point) (L : Line) : Prop :=
+(A.onLine L) ∧ (B.onLine L) ∧ (C.onLine L) ∧ DistinctThreePoints A B C
+
+abbrev Concurrent (l1 l2 l3 : Line) : Prop :=
+  ∃ (P : Point), P.onLine l1 ∧ P.onLine l2 ∧ P.onLine l3
+
+abbrev LiesOnRay (A B C : Point) : Prop :=
+between A C B ∨ between A B C ∨ C = B
+
+abbrev MidPoint (A P B : Point) : Prop :=
+  between A P B ∧ |(A─P)| = |(P─B)|
+/-Perpendicular-/
+
+abbrev PerpLineAtPoint (L M : Line) (X : Point): Prop :=
+  ∀ (A B: Point), (A ≠ X) ∧ (B ≠ X) ∧ (A.onLine L) ∧ (B.onLine M) → (∠A:X:B = ∟)
+
+abbrev PerpLine (L M : Line) : Prop :=
+  ∃(X : Point), TwoLinesIntersectAtPoint L M X ∧ PerpLineAtPoint L M X
+
+abbrev Foot (A B : Point) (l : Line) :=
+  ¬A.onLine l ∧ B.onLine l ∧ (∀ (C : Point), C.onLine l ∧ B ≠ C → ∠ C:B:A = ∟)
+
+abbrev PerpBisector (a b : Point) (L : Line) : Prop :=
+  ¬(a = b) ∧ ∀ (x : Point), x.onLine L → |(x─a)| = |(x─b)|
+
+abbrev PerpFourPoints (A B C D : Point) : Prop :=
+∃ (P : Point), (Coll P A B) ∧ (Coll P C D) ∧ (∠ A:P:C = ∟)
+/-Circles-/
+abbrev Diameter (A B O: Point) (C: Circle): Prop :=
+MidPoint A O B ∧ O.isCentre C ∧ A.onCircle C ∧ B.onCircle C
+
+abbrev Circumcentre (O A B C : Point) : Prop :=
+|(O─A)| = |(O─B)| ∧ |(O─C)| = |(O─B)|
+
+abbrev Circumcircle (Ω : Circle) (A B C : Point) : Prop :=
+A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω
+
+abbrev TangentLineCircle (L : Line) (O : Circle) : Prop :=
+∃! (P : Point), (P.onLine L) ∧ (P.onCircle O)
+
+abbrev TangentLineCircleAtPoint (P O: Point) (L: Line) (C :Circle) : Prop :=
+(O.isCentre C) ∧ (P.onCircle C) ∧ Foot O P L
+/-Triangle-/
+abbrev Triangle (A B C : Point) : Prop :=
+¬ (Coll A B C)
+
+abbrev AcuteTriangle (A B C : Point) : Prop :=
+Triangle A B C ∧ ∠A:B:C < ∟ ∧ ∠B:C:A < ∟ ∧ ∠C:A:B < ∟
+
+abbrev formAcuteTriangle (a b c : Point) (AB BC CA : Line) : Prop :=
+formTriangle a b c AB BC CA ∧ (∠ a : c : b < ∟) ∧ (∠ a : b : c < ∟) ∧ (∠ c : a : b < ∟)
+
+abbrev IsoTriangle (A B C : Point) : Prop :=
+Triangle A B C ∧ |(A─B)| = |(A─C)|
+
+abbrev RightTriangle (A B C : Point) : Prop :=
+Triangle A B C ∧ ∠B:A:C = ∟
+
+abbrev InsideTriangle (X A B C : Point) (AB BC CA: Line) : Prop :=
+X.sameSide A BC ∧ X.sameSide B CA ∧ X.sameSide C AB
+
+abbrev CongruentTriangles (A B C D E F: Point) : Prop :=
+Triangle A B C ∧ Triangle D E F ∧ |(A─B)| = |(D─E)| ∧ |(B─C)| = |(E─F)| ∧ |(A─C)| = |(D─F)| ∧ ∠A:B:C = ∠D:E:F ∧ ∠B:A:C = ∠E:D:F ∧ ∠A:C:B = ∠D:F:E
+
+abbrev SimilarTriangles (A B C D E F: Point) : Prop :=
+Triangle A B C ∧ Triangle D E F ∧ ∠A:B:C = ∠D:E:F ∧ ∠B:A:C = ∠E:D:F ∧ ∠A:C:B = ∠D:F:E ∧ |(A─B)| * |(E─F)| = |(B─C)| * |(D─E)| ∧ |(B─C)| * |(F─D)| = |(C─A)| * |(E─F)| ∧ |(C─A)| * |(D─E)| = |(A─B)| * |(F─D)|
+
+abbrev Incentre (I A B C : Point) : Prop :=
+∠ I:A:B = ∠ I:A:C ∧ ∠ I:C:A = ∠ I:C:B ∧ ∠I:B:A = ∠I:B:C
+
+abbrev Excentre (J A B C : Point) : Prop :=
+∠ J:B:A + ∠J:B:C = ∟ + ∟ ∧ ∠ J:C:A + ∠ J:C:B = ∟ + ∟
+
+abbrev Incircle (Ω : Circle) (A B C: Point) (AB BC CA : Line) : Prop :=
+TangentLineCircle AB Ω ∧ TangentLineCircle BC Ω ∧ TangentLineCircle CA Ω ∧ ∃(I: Point), Incentre I A B C ∧ I.isCentre Ω
+
+abbrev Excircle (Ω : Circle) (A B C: Point) (AB BC CA : Line) : Prop :=
+TangentLineCircle AB Ω ∧ TangentLineCircle BC Ω ∧ TangentLineCircle CA Ω ∧ ∃(I: Point), Excentre I A B C ∧ I.isCentre Ω
+
+abbrev Orthocentre (X A B C D E F: Point) (AB BC CA : Line): Prop :=
+formTriangle A B C AB BC CA ∧ Foot A D BC ∧ Foot B E CA ∧ Foot C F AB ∧ Coll A X D ∧ Coll B X E ∧ Coll C X F
+
+/-Quadrilateral-/
+
+abbrev InsideQuadrilateral (X A B C D: Point) (AB BC CD DA: Line) : Prop :=
+X.sameSide A BC ∧ X.sameSide B CD ∧ X.sameSide C DA ∧ X.sameSide D AB
+
+abbrev formQuadrilateral (a b c d : Point) (AB BC CD DA : Line) : Prop :=
+    distinctPointsOnLine a b AB ∧
+    distinctPointsOnLine c d CD ∧
+    distinctPointsOnLine b c BC ∧
+    distinctPointsOnLine a d DA ∧ a.sameSide b CD ∧ b.sameSide c DA ∧ c.sameSide d AB ∧ d.sameSide a BC ∧ (b ≠ d) ∧ (a ≠ c)
+
+abbrev CyclicQuadrilateral (A B C D : Point) (AB BC CD DA : Line) (O: Circle): Prop :=
+formQuadrilateral A B C D AB BC CD DA ∧ (A.onCircle O) ∧ (B.onCircle O) ∧ (C.onCircle O) ∧ (D.onCircle O)
+
+abbrev CompleteQuadrilateral (A B C D E F : Point) (ABC CDF BDE AEF : Line) : Prop :=
+formQuadrilateral A B D F ABC BDE CDF AEF ∧ C.onLine ABC ∧ C.onLine CDF ∧ E.onLine BDE ∧ E.onLine AEF ∧ between A B C ∧ between A F E
+
+/-Other Shapes-/
+abbrev formPentagon (A B C D E : Point) (AB BC CD DE EA : Line): Prop :=
+(distinctPointsOnLine A B AB) ∧ (distinctPointsOnLine B C BC) ∧
+(distinctPointsOnLine C D CD) ∧ (distinctPointsOnLine D E DE) ∧
+(distinctPointsOnLine E A EA) ∧ (∠ A:B:C + ∠ B:C:D  + ∠ C:D:E + ∠ D:E:A + ∠ E:A:D = ∟ + ∟ + ∟ + ∟)
+
+abbrev Trapezoid (A B C D : Point) (AB BC CD DA : Line) : Prop :=
+formQuadrilateral A B C D AB BC CD DA ∧ (¬ AB.intersectsLine CD) ∧ (BC.intersectsLine DA)
+
+abbrev Rhombus (A B C D : Point) (AB BC CD DA : Line) : Prop :=
+formQuadrilateral A B C D AB BC CD DA ∧ (¬ AB.intersectsLine CD) ∧ (¬ BC.intersectsLine DA) ∧
+|(A─B)| = |(B─C)| ∧ |(B─C)| = |(C─D)| ∧ |(C─D)| = |(D─A)|
+
+abbrev Rectangle (A B C D : Point) (AB BC CD DA : Line) : Prop :=
+formQuadrilateral A B C D AB BC CD DA  ∧
+(∠ A:B:C = ∟) ∧ (∠ B:C:D = ∟) ∧ (∠ C:D:A = ∟) ∧ (∠ D:A:B = ∟)
+
+abbrev Square (A B C D : Point) (AB BC CD DA : Line) : Prop :=
+formQuadrilateral A B C D AB BC CD DA  ∧
+(∠ A:B:C = ∟) ∧ (∠ B:C:D = ∟) ∧ (∠ C:D:A = ∟) ∧ (∠ D:A:B = ∟) ∧
+|(A─B)| = |(B─C)| ∧ |(B─C)| = |(C─D)| ∧ |(C─D)| = |(D─A)|
+
+abbrev Parallelogram (A B C D : Point) (AB BC CD DA : Line) : Prop :=
+formQuadrilateral A B C D AB BC CD DA ∧ (¬ AB.intersectsLine CD) ∧ (¬ BC.intersectsLine DA)
+
+/-Position of Circles-/
+abbrev LineIntersectsCircleAtTwoPoints (A B : Point) (L : Line) (Ω: Circle) : Prop :=
+L.intersectsCircle Ω ∧ A ≠ B ∧ A.onCircle Ω ∧ A.onLine L ∧ B.onCircle Ω ∧ B.onLine L
+
+abbrev CirclesIntersectAtTwoPoints (C1 C2 : Circle) (A B : Point): Prop :=
+(C1.intersectsCircle C2) ∧ (A.onCircle C1) ∧ (A.onCircle C2) ∧ (B.onCircle C1) ∧ (B.onCircle C2) ∧ (A ≠ B)
+
+abbrev TangentCircles (Ω₁ Ω₂ : Circle) : Prop :=
+∃ (A : Point), A.onCircle Ω₁ ∧ A.onCircle Ω₂ ∧ (∀ (B : Point), B ≠ A ∧ B.onCircle Ω₁ ∧ B.onCircle Ω₂ → False)
+
+abbrev TangentCirclesInterior (Ω₁ Ω₂ : Circle) : Prop :=
+∃ (A : Point), A.onCircle Ω₁ ∧ A.onCircle Ω₂ ∧ (∀ (B : Point), B ≠ A ∧ B.onCircle Ω₁ ∧ B.onCircle Ω₂ → False) ∧ (∀ (C : Point), C.insideCircle Ω₁ → C.insideCircle Ω₂)
+
+abbrev TangentCirclesExterior (Ω₁ Ω₂ : Circle) : Prop :=
+∃ (A : Point), A.onCircle Ω₁ ∧ A.onCircle Ω₂ ∧ (∀ (B : Point), B ≠ A ∧ B.onCircle Ω₁ ∧ B.onCircle Ω₂ → False) ∧ (∀ (C : Point), C.insideCircle Ω₁ ∧ C.insideCircle Ω₂ → False)
+
+abbrev SeperateCircles (Ω₁ Ω₂ : Circle) : Prop :=
+∀ (P : Point), (P.insideCircle Ω₁ ∨ P.onCircle Ω₁) ∧ (P.insideCircle Ω₂ ∨ P.onCircle Ω₂) → False
+
+abbrev InsideCircle (Ω₁ Ω₂ : Circle) : Prop :=
+∀ (P : Point), P.insideCircle Ω₁ ∨ P.onCircle Ω₁ → P.insideCircle Ω₂
+
+abbrev RadicalAxis (Ω₁ Ω₂ : Circle) (L : Line) : Prop :=
+∀ (A : Point), A.onLine L → Pow(A, Ω₁) = Pow(A, Ω₂)
+--- End of Abbreviation ---
+
+Also, I'll provide you the construction rules where you can construct lines, points and circles by these rules using "euclid_apply <theorem> as ...". Notice that these rules are not included in SMT. So you should construct lines, points in your proof by yourself.
+
+--- Begin of Construction Rules ---
+
+axiom intersection_lines : ∀ (L M : Line), L.intersectsLine M →
+  ∃ a : Point, (a.onLine L) ∧ (a.onLine M)
+
+axiom intersections_circle_line : ∀ (α : Circle) (L : Line), L.intersectsCircle α →
+  ∃ (a b : Point), (a.onCircle α) ∧ (a.onLine L) ∧ (b.onCircle α) ∧ (b.onLine L) ∧ a ≠ b
+
+axiom intersection_circle_line_between_points : ∀ (α : Circle) (L : Line) (b c :Point),
+  (b.insideCircle α) ∧ (b.onLine L) ∧ (c.outsideCircle α) ∧ (c.onLine L) →
+  ∃ a : Point, (a.onCircle α) ∧ (a.onLine L) ∧ (between b a c)
+
+axiom intersection_circle_line_extending_points : ∀ (α : Circle) (L : Line) (b c :Point),
+  (b.insideCircle α) ∧ distinctPointsOnLine b c L →
+  ∃ a : Point, (a.onCircle α) ∧ (a.onLine L) ∧ (between a b c)
+
+axiom intersection_circles : ∀ (α β : Circle), α.intersectsCircle β →
+  ∃ a : Point, (a.onCircle α) ∧ (a.onCircle β)
+
+axiom intersection_same_side : ∀ (α β : Circle) (b c d : Point) (L : Line),
+  (α.intersectsCircle β) ∧ (c.isCentre α) ∧ (d.isCentre β) ∧ (c.onLine L) ∧ (d.onLine L) ∧ ¬(b.onLine L) →
+  ∃ a : Point, (a.onCircle α) ∧ (a.onCircle β) ∧ (a.sameSide b L)
+
+axiom intersection_opposite_side : ∀ (α β : Circle) (b c d : Point) (L : Line),
+  (α.intersectsCircle β) ∧ (c.isCentre α) ∧ (d.isCentre β) ∧ (c.onLine L) ∧ (d.onLine L) ∧ ¬(b.onLine L) →
+  ∃ a : Point, (a.onCircle α) ∧ (a.onCircle β) ∧ a.opposingSides b L
+
+axiom line_from_points : ∀ (a b : Point), a ≠ b →
+  ∃ L : Line, (a.onLine L) ∧ (b.onLine L)
+
+axiom circle_from_points : ∀ (a b : Point), a ≠ b →
+  ∃ α : Circle, (a.isCentre α) ∧ (b.onCircle α)
+
+axiom exists_distincts_points_on_line :
+  ∀ l : Line, ∀ p : Point, ∃ p' : Point, p ≠ p' ∧ p'.onLine l
+
+axiom exists_point_between_points_on_line :
+  ∀ (L : Line) (b c : Point), distinctPointsOnLine b c L
+  → ∃ a : Point, (a.onLine L) ∧ (between b a c)
+
+axiom exists_point_between_points_not_on_line :
+  ∀ (L M : Line) (b c : Point), distinctPointsOnLine b c L ∧ L ≠ M
+  → ∃ a : Point, (a.onLine L) ∧ (between b a c) ∧ ¬(a.onLine M)
+
+axiom point_between_points_shorter_than : ∀ (L : Line) (b c : Point) (s : Segment),
+  distinctPointsOnLine b c L ∧ (|s| > 0) →
+  ∃ a : Point, (a.onLine L) ∧ (between b a c) ∧ |(b─a)| < |s|
+
+axiom extend_point :
+  ∀ (L : Line) (b c : Point), distinctPointsOnLine b c L
+  → ∃ a : Point, (a.onLine L) ∧ (between b c a)
+
+axiom extend_point_not_on_line :
+  ∀ (L M : Line) (b c : Point), distinctPointsOnLine b c L ∧ L ≠ M
+  → ∃ a : Point, (a.onLine L) ∧ (between b c a) ∧ ¬(a.onLine M)
+
+axiom extend_point_longer :
+  ∀ (L : Line) (b c : Point) (s : Segment), distinctPointsOnLine b c L
+  → ∃ a : Point, (a.onLine L) ∧ (between b c a) ∧ |(c─a)| > |s|
+
+axiom point_same_side :
+  ∀ (L : Line) (b : Point), ¬(b.onLine L) → ∃ a : Point, a.sameSide b L
+
+axiom distinct_point_same_side:
+  ∀ (L : Line) (b c : Point), ¬(b.onLine L) → ∃ a : Point, a ≠ c ∧ a.sameSide b L
+
+axiom point_on_line_same_side :
+  ∀ (L M : Line) (b : Point), ¬(b.onLine L) ∧ (L.intersectsLine M)
+  → ∃ a : Point, a.onLine M ∧ a.sameSide b L
+
+axiom exists_point_opposite :
+  ∀ (L : Line) (b : Point), ¬(b.onLine L) → ∃ a : Point, a.opposingSides b L
+
+axiom exists_distinct_point_opposite_side :
+  ∀ (L : Line) (b c : Point), ¬(b.onLine L) → ∃ a : Point, a ≠ c ∧ a.opposingSides b L
+
+axiom exists_point_on_circle :
+  ∀ (α : Circle), ∃ a : Point, a.onCircle α
+
+axiom exists_distinct_point_on_circle :
+  ∀ (α : Circle) (b : Point), ∃ a : Point, a ≠ b ∧ (a.onCircle α)
+
+axiom exists_point_inside_circle :
+  ∀ (α : Circle), ∃ a : Point, a.insideCircle α
+
+axiom exists_distinct_point_inside_circle :
+  ∀ (α : Circle) (b : Point), ∃ a : Point, a ≠ b ∧ a.insideCircle α
+
+axiom exists_point_outside_circle :
+  ∀ (α : Circle), ∃ a : Point, a.outsideCircle α
+
+axiom exists_distinct_point_outside_circle :
+  ∀ (α : Circle) (b : Point),  ∃ a : Point, a ≠ b ∧ a.outsideCircle α
+
+--- End of Construction Rules ---
+Also, I'll provide you the theorem libarary. Use "euclid_apply" to use these theorems in theorem library.
+--- Begin of Theorem Library ---
+
+axiom triangle_area_foot :∀ (a b c d: Point) (BC: Line),b.onLine BC ∧ c.onLine BC ∧ (Triangle a b c) ∧ Foot a d BC → (△a:b:c).area = |(a─d)| * |(b─c)|/2
+
+axiom threePoints_existCircle : ∀ (A B C : Point),
+  Triangle A B C →
+  ∃ (Ω : Circle),
+    (A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω)
+
+axiom exists_centre : ∀ (O: Circle), ∃ (C : Point), C.isCentre O
+
+axiom rightAngle_eq_pi_div_two : ∟ = Real.pi / 2
+
+axiom rightTriangle_sin : ∀ (A B C : Point), RightTriangle A B C → Real.sin (∠A:B:C) = |(A─C)| / |(B─C)|
+
+axiom rightTriangle_cos : ∀ (A B C : Point), RightTriangle A B C → Real.cos (∠A:B:C) = |(A─B)| / |(B─C)|
+
+axiom similar_AA : ∀ (A B C D E F : Point), Triangle A B C ∧ Triangle D E F ∧  ∠ A:B:C = ∠ D:E:F ∧ ∠ B:A:C = ∠ E:D:F → SimilarTriangles A B C D E F
+
+axiom similar_SAS : ∀ (A B C D E F : Point), Triangle A B C ∧ Triangle D E F ∧  ∠ A:B:C = ∠ D:E:F ∧ |(A─B)| * |(E─F)| = |(B─C)| * |(D─E)| → SimilarTriangles A B C D E F
+
+axiom similar_SSS : ∀ (A B C D E F : Point), Triangle A B C ∧ Triangle D E F ∧ |(A─B)| * |(E─F)| = |(B─C)| * |(D─E)| ∧ |(B─C)| * |(F─D)| = |(C─A)| * |(E─F)| → SimilarTriangles A B C D E F
+
+theorem coincident_angle_eq_zero : ∀ (A B : Point), (A ≠ B) → ∠A:B:A = 0:= by
+
+theorem coll_def : ∀ (A B C : Point), Coll A B C → ∃(l:Line),
+A.onLine l ∧ B.onLine l ∧ C.onLine l := by
+
+theorem not_coll_not_onLine : ∀(A B C : Point) (l :Line), ¬ Coll A B C ∧ distinctPointsOnLine B C l → ¬ A.onLine l := by
+
+theorem coll_zeroAngle : ∀ (A B C : Point), between A B C → ∠B:A:C = 0 := by
+
+theorem coll_straightAngle : ∀ (A B C : Point), between A B C → ∠A:B:C = ∟  + ∟ := by
+
+theorem coll_supp_angles : ∀ (D A B C: Point), (between A B C) ∧ (¬ Coll A B D) → ∠D:B:A + ∠D:B:C = ∟ + ∟ := by
+
+theorem coll_angles_eq : ∀ (A B C D : Point), between A B C ∧ ¬ Coll A B D → ∠D:C:B = ∠D:C:A ∧ ∠D:B:C + ∠D:B:A = ∟ + ∟ ∧ ∠D:A:B = ∠D:A:C:= by
+
+theorem nondegenerate_angle_if : ∀ (A B C : Point), ¬ Coll A B C → ∠A:B:C > 0 ∧ ∠A:B:C < ∟ + ∟ := by
+
+theorem nondegenerate_angle_onlyif : ∀ (A B C : Point), ∠A:B:C > 0 ∧ ∠A:B:C < ∟ + ∟ ∧ A ≠ B ∧ B ≠ C → ¬ Coll A B C := by
+
+theorem coll_if_eq_angles : ∀(A B C D: Point) (AB : Line), distinctPointsOnLine A B AB ∧ (∠A:B:C = ∠A:B:D) ∧ D.sameSide C AB → Coll B C D := by
+
+theorem coll_if_supp_angles : ∀(A B C D: Point) (AB : Line), distinctPointsOnLine A B AB ∧ (∠A:B:C + ∠A:B:D = ∟ + ∟ ) ∧ D.opposingSides C AB → between C B D := by
+
+theorem coll_eq_or_supp_angles: ∀ (A B C D: Point), Coll A B C  ∧ (B ≠ C) ∧ (B ≠ A) ∧ (C ≠ A) ∧ ¬ ( Coll A B D)→
+  ∠ D:B:C = ∠ D:B:A ∨ ∠ D:B:C + ∠D:B:A = ∟ + ∟ := by
+
+theorem between_imp_angles_sum : ∀(A B C D: Point), between B C D ∧ (¬ Coll A B C) → ∠D:A:C + ∠C:A:B = ∠D:A:B := by
+
+theorem between_if_angles_sum: ∀ (A B C D: Point), (Triangle A B C) ∧ (Coll B D C) ∧ (∠D:A:C = ∠D:A:B) → between B D C := by
+
+theorem eq_opposite_angles : ∀ (A B C D E: Point), between A C E ∧ between B C D → ∠A:C:B = ∠ D:C:E := by
+
+theorem triangle_angles_sum : ∀(A B C : Point) , Triangle A B C → ∠A:B:C +∠B:C:A + ∠C:A:B = ∟ + ∟ := by
+
+theorem completeQuadrilateral_angles_sum : ∀ (A B C D E F: Point) (ABC CDF BDE AEF : Line), CompleteQuadrilateral A B C D E F ABC CDF BDE AEF → ∠E:A:C + ∠A:E:D + ∠A:C:D = ∠E:D:C := by
+
+theorem acuteAngle_foot_eq_angles : ∀ (A B C D : Point) (BC: Line), distinctPointsOnLine B C BC ∧ ¬ (A.onLine BC) ∧ Foot A D BC ∧ ∠A:B:C < ∟ → ∠A:B:C = ∠A:B:D := by
+
+
+theorem triangle_angle_positive : ∀(A B C : Point) , Triangle A B C → ∠A:B:C > 0 ∧ ∠A:C:B > 0 ∧ ∠C:A:B > 0 := by
+
+theorem PythagoreanTheorem : ∀ (a b c: Point) (AB BC AC : Line),
+  formTriangle a b c AB BC AC ∧ (∠ b:a:c : ℝ) = ∟ →
+  |(b─c)| * |(b─c)| = |(b─a)| * |(b─a)| + |(a─c)| * |(a─c)| :=
+by
+
+theorem PythagoreanTheorem_point : ∀ (a b c: Point), (Triangle a b c) ∧ (∠ b:a:c : ℝ) = ∟ →
+  |(b─c)| * |(b─c)| = |(b─a)| * |(b─a)| + |(a─c)| * |(a─c)| := by
+
+theorem PythagoreanTheorem_to_acuteAngle : ∀ (A B C : Point), Triangle A B C ∧ ∠B:A:C < ∟ → |(A─B)| * |(A─B)| + |(A─C)| * |(A─C)| > |(C─B)| * |(C─B)| := by
+
+theorem PythagoreanTheorem_to_obtuseAngle : ∀ (A B C : Point), Triangle A B C ∧ ∠B:A:C > ∟ → |(A─B)| * |(A─B)| + |(A─C)| * |(A─C)| < |(C─B)| * |(C─B)| := by
+
+theorem triangle_ex_angle_eq : ∀ (a b c d: Point), (Triangle a b c) ∧ (between a b d) → ∠d:b:c = ∠b:c:a + ∠c:a:b := by
+
+theorem acuteTriangle_foot_between : ∀(A B C D: Point) (BC: Line), distinctPointsOnLine B C BC ∧ Foot A D BC ∧ ∠A:B:C < ∟ ∧ ∠ A:C:B < ∟ → between B D C := by
+
+theorem obtuseTriangle_foot_between: ∀(A B C D: Point) (BC : Line), distinctPointsOnLine B C BC ∧ Foot A D BC ∧ ∠A:B:C > ∟ → between D B C := by
+
+theorem congruentTriangles_SAS : ∀ (A B C D E F : Point), Triangle A B C ∧ Triangle D E F ∧ |(A─B)| = |(D─E)| ∧ ∠ A:B:C = ∠ D:E:F ∧ |(B─C)| = |(E─F)| → CongruentTriangles A B C D E F := by
+
+theorem congruentTriangles_SSS : ∀ (A B C D E F : Point), Triangle A B C ∧ Triangle D E F ∧ |(A─B)| = |(D─E)| ∧ |(B─C)| = |(E─F)| ∧ |(C─A)| = |(F─D)| → CongruentTriangles A B C D E F := by
+
+theorem congruentTriangles_ASA : ∀ (A B C D E F : Point), Triangle A B C ∧ Triangle D E F ∧ |(A─B)| = |(D─E)| ∧ ∠ A:B:C = ∠ D:E:F ∧ ∠ B:A:C = ∠ E:D:F → CongruentTriangles A B C D E F := by
+
+theorem congruentTriangles_AAS : ∀ (A B C D E F : Point), Triangle A B C ∧ Triangle D E F ∧ |(A─B)| = |(D─E)| ∧ ∠ A:B:C = ∠ D:E:F ∧ ∠ A:C:B = ∠ D:F:E → CongruentTriangles A B C D E F := by
+
+theorem congruentTriangles_HL : ∀ (a b c d e f : Point) ,  RightTriangle a b c ∧ RightTriangle d e f ∧ |(a─b)| = |(d─e)| ∧ |(b─c)| = |(e─f)| → CongruentTriangles a b c d e f := by
+
+theorem triangleMidsegment_parallel_base : ∀ (a b c d e : Point) (AB BC CA DE: Line), formTriangle a b c AB BC CA ∧ distinctPointsOnLine d e DE ∧ MidPoint a d b ∧ MidPoint a e c →  ¬ BC.intersectsLine DE:= by
+
+theorem triangleMidsegment_half_len : ∀ (a b c d e : Point), Triangle a b c ∧ MidPoint a d b ∧ MidPoint a e c → |(b─c)| = |(d─e)| * 2:= by
+
+theorem insideTriangle_angles_sum_eq_fullAngle : ∀ (A B C O : Point) (AB BC CA: Line), formTriangle A B C AB BC CA ∧ InsideTriangle O A B C AB BC CA → ∠A:O:C + ∠ C:O:B + ∠ B:O:A = ∟ + ∟ +  ∟ + ∟ := by
+
+theorem rightTriangle_midLine_eq_half_hypotenuse: ∀ (A B C D: Point), RightTriangle A B C ∧ MidPoint B D C → |(A─D)| = |(B─D)| := by
+
+theorem rightTriangle_hypotenuse_gt_leg : ∀(A B C : Point), RightTriangle A B C → |(B─C)| > |(A─B)| ∧  |(B─C)| > |(A─C)| := by
+
+theorem insideTriangle_angles_sum: ∀ (A B C O : Point) (AB BC CA: Line), formTriangle A B C AB BC CA ∧ InsideTriangle O A B C AB BC CA → ∠B:O:C = ∠O:B:A + ∠B:A:C + ∠A:C:O := by
+
+theorem similarTriangles_with_opposite_angles: ∀ (a b c d e: Point),¬ Coll a b c ∧ (between a c e) ∧ (between b c d) ∧ |(e─c)| * |(a─c)| = |(b─c)| * |(c─d)| → SimilarTriangles a c b d c e := by
+
+theorem similarTriangles_with_same_angle: ∀ (a b c d e: Point),¬ Coll a b c ∧ (between e a b) ∧ (between e c d) ∧ |(e─a)| * |(e─b)| = |(e─c)| * |(e─d)| → SimilarTriangles e a c e d b := by
+
+theorem similarTriangles_perm : ∀ (A B C D E F : Point), SimilarTriangles A B C D E F → SimilarTriangles A C B D F E ∧ SimilarTriangles B A C E D F ∧ SimilarTriangles B C A E F D ∧ SimilarTriangles C A B F D E ∧ SimilarTriangles C B A F E D := by
+
+theorem similarTriangles_trans :  ∀ (A B C D E F G H I : Point), SimilarTriangles A B C D E F ∧ SimilarTriangles D E F G H I → SimilarTriangles A B C G H I := by
+
+theorem similarTriangles_from_rotary_similarTriangles : ∀ (A B C D E : Point), SimilarTriangles A B C A D E ∧ (¬ Coll A B D ∨ ¬ Coll A C E) ∧ ∠B:A:D = ∠C:A:E → SimilarTriangles A B D A C E := by
+
+theorem parallel_bases_imp_similarTriangles : ∀ (A B C D E: Point) (BC DE : Line), Triangle A B C ∧ distinctPointsOnLine B C BC ∧ distinctPointsOnLine D E DE ∧ ¬ BC.intersectsLine DE ∧ Coll A B D ∧ Coll A C E → SimilarTriangles A B C A D E := by
+
+theorem triangle_gt_side_gt_angle : ∀ (a b c : Point) ,
+  Triangle a b c ∧ (|(a─c)| > |(a─b)|) →
+  (∠ a:b:c > ∠ b:c:a) :=
+by
+
+theorem triangle_parallel_bases_eq_ratio: ∀ (A B C D E F G: Point) (BC DE : Line), Triangle A B C ∧ distinctPointsOnLine B C BC ∧ distinctPointsOnLine D E DE ∧ ¬ BC.intersectsLine DE ∧ Coll A B D ∧ Coll A C E ∧ F.onLine BC ∧ G.onLine DE ∧ Coll A G F ∧ F ≠ B ∧ F ≠ C ∧ G ≠ D ∧ G ≠ E → |(D─G)| * |(B─C)|  =|(D─E)| *|(B─F)| := by
+
+theorem exists_circumcentre: ∀(A B C : Point), Triangle A B C → ∃(O : Point), Circumcentre O A B C := by
+
+theorem triangle_perpBisectors_concurrent: ∀(A B C: Point) (l1 l2 l3: Line), Triangle A B C ∧ PerpBisector A B l1 ∧ PerpBisector B C l2 ∧ PerpBisector A C l3 → Concurrent l1 l2 l3 := by
+
+theorem acuteTriangle_circumcentre_insideTriangle: ∀(A B C O: Point) (AB BC CA : Line),formTriangle A B C AB BC CA ∧ AcuteTriangle A B C ∧ Circumcentre O A B C → InsideTriangle O A B C AB BC CA := by
+
+theorem isoTriangle_base_side_cos : ∀(A B C : Point), |(A─B)| = |(A─C)| ∧ B ≠ C → 2 * |(A─B)| * cos (∠A:B:C) = |(B─C)| := by
+
+theorem circumcentre_inscribedAngle_comp : ∀ (A B C O : Point) (AB: Line) (Ω : Circle), (distinctPointsOnLine A B AB) ∧ (O.sameSide C AB) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω)
+  → ∠ O:B:A +  ∠ A:C:B= ∟ := by
+
+theorem circumcentre_inscribedAngle_diff_rightAngle : ∀ (A B C O : Point) (AB: Line) (Ω : Circle), (distinctPointsOnLine A B AB) ∧ (O.opposingSides C AB) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω)
+  → ∠ A:C:B - ∠ O:B:A = ∟ := by
+
+theorem LawOfSines_radius: ∀ (A B C O: Point), Triangle A B C ∧ Circumcentre O A B C → |(B─C)| = 2 * Real.sin (∠B:A:C) * |(A─O)| := by
+
+theorem isoTriangle_imp_eq_angles : ∀ (A B C : Point), IsoTriangle A B C → ∠ A:B:C = ∠A:C:B := by
+
+theorem eq_sides_imp_eq_angles :∀ (O A B : Point), |(O─A)|=|(O─B)| ∧ (A ≠ B) → ∠O:A:B = ∠O:B:A := by
+
+theorem isoTriangle_if_eq_angles : ∀ (a b c : Point),
+  (Triangle a b c) ∧ (∠ a:b:c = ∠ a:c:b)
+  → |(a─b)| = |(a─c)| := by
+
+theorem isoTriangle_three_lines_concidence_midpoint : ∀ (a b c d: Point),
+  IsoTriangle a b c ∧ MidPoint b d c →
+  ( ∠a:d:b = ∟ ∧  ∠a:d:c = ∟ ∧  ∠d:a:b = ∠ d:a:c)
+:= by
+
+theorem isoTriangle_three_lines_concidence_foot : ∀ (a b c d: Point)(BC : Line),
+  IsoTriangle a b c ∧ distinctPointsOnLine b c BC ∧ Foot a d BC →
+  MidPoint b d c ∧  ∠a:d:b = ∟ ∧  ∠a:d:c = ∟ ∧  ∠d:a:b = ∠ d:a:c
+:= by
+
+theorem isoTriangle_three_lines_concidence_angleBisector : ∀ (a b c d: Point),
+  IsoTriangle a b c ∧ ∠d:a:b = ∠ d:a:c ∧ Coll b c d→
+  (MidPoint b d c ∧  ∠a:d:b = ∟ ∧  ∠a:d:c = ∟)
+:= by
+
+theorem perpBisector_imp_isoTriangle : ∀ (A B C D: Point), MidPoint B D C ∧ ∠A:D:B = ∟ ∧ Triangle A B C → IsoTriangle A B C:= by
+
+theorem ApolloniusTheorem_to_isoTriangle :
+  ∀ (A B C D : Point) (BC : Line),
+    IsoTriangle A B C ∧
+    distinctPointsOnLine B C BC ∧
+    Coll B D C ∧
+    between B D C
+    → |(A─B)| * |(A─B)| - |(A─D)| * |(A─D)| = |(B─D)| * |(C─D)| := by
+
+theorem exists_incentre : ∀ (A B C: Point), Triangle A B C → ∃ (I : Point), Incentre I A B C := by
+
+theorem triangle_two_altitudes_intersect : ∀ (A B C D E : Point) (AB BC CA AD BE: Line), formTriangle A B C AB BC CA ∧ Foot A D BC ∧ Foot B E CA ∧ distinctPointsOnLine A D AD ∧ distinctPointsOnLine B E BE → AD.intersectsLine BE := by
+
+theorem eq_feet_if_perpLine: ∀ (A B H : Point) (l : Line), (Foot A H l) ∧ (Coll A B H) ∧ (B ≠ H) → Foot B H l := by
+
+theorem triangle_two_feet_eq_pow : ∀ (A B C D E : Point) (AB BC CA: Line), formTriangle A B C AB BC CA ∧ Foot A D BC ∧ Foot B E CA → |(C─D)| * |(C─B)| =|(C─E)| * |(C─A)|:=  by
+
+theorem exists_orthocentre: ∀ (A B C D E F: Point) (AB BC CA: Line), formTriangle A B C AB BC CA ∧ Foot A D BC ∧ Foot B E CA ∧ Foot C F AB → ∃ (H : Point), Orthocentre H A B C D E F AB BC CA:= by
+
+theorem orthocentre_of_rightTriangle:
+  ∀ (A B C H D E F : Point) (AB BC CA : Line),
+    RightTriangle A B C →
+    Orthocentre H A B C D E F AB BC CA →
+    H = A := by
+
+theorem orthocentre_of_acuteTriangle_insideTriangle:
+  ∀ (A B C H D E F : Point) (AB BC CA: Line),
+    (formAcuteTriangle A B C AB BC CA) ∧ (Orthocentre H A B C D E F AB BC CA)
+    → InsideTriangle H A B C AB BC CA := by
+
+theorem orthocentre_of_acuteTriangle_insideTriangle_transfer : ∀(A B C D E F H: Point) (AB BC CA AH BH: Line), AcuteTriangle A B C ∧  distinctPointsOnLine A H AH ∧ distinctPointsOnLine B H BH ∧ Orthocentre H A B C D E F AB BC CA → Orthocentre C A B H E D F AB BH AH:= by
+
+theorem acuteTriangle_power_of_orthocenter :
+  ∀ (A B C D E F H : Point) (AB BC CA : Line),
+    AcuteTriangle A B C ∧
+    Orthocentre H A B C D E F AB BC CA
+    → |(A─H)| * |(H─D)| = |(B─H)| * |(H─E)|  := by
+
+theorem exists_perpBisector' (a b : Point) : (a ≠ b) →  ∃ L, PerpBisector a b L ∧ ∃ M : Point, M.onLine L ∧ MidPoint a M b := by
+
+theorem exists_perpBisector (a b : Point) : (a ≠ b) →  ∃ L, PerpBisector a b L := by
+
+theorem exists_midpoint : ∀ (A B : Point), A ≠ B → ∃(P : Point), MidPoint A P B := by
+
+theorem exists_foot : ∀ (c: Point) (AB : Line),
+   ¬(c.onLine AB) →
+  ∃ h : Point, Foot c h AB :=
+by
+
+theorem exists_perpLine : ∀ (P : Point) (L : Line), ∃ (M : Line), P.onLine M ∧ PerpLine M L := by
+
+theorem exists_angleBisector : ∀ (A B C : Point),
+(A ≠ B) ∧ (B ≠ C) ∧ ¬(Coll A B C)
+→ ∃ (L : Line), B.onLine L ∧ (∀ (P: Point), P ≠ B → (P.onLine L ↔ ∠ A:B:P = ∠ P:B:C))
+:= by
+
+theorem exists_point_not_on_line : ∀ (L : Line), ∃ (A : Point), ¬ A.onLine L := by
+
+theorem exists_point_on_line_not_on_line : ∀ (L M : Line), L ≠ M → ∃ (A : Point), A.onLine L ∧ ¬ A.onLine M := by
+
+theorem triangle_inequality : ∀ (a b c : Point), Triangle a b c →
+|(a─b)| < |(b─c)| + |(c─a)| := by
+
+theorem midpoint_half_len: ∀ (A B P : Point), MidPoint A P B → |(A─B)| * 1/2 = |(P─B)|  := by
+
+theorem between_if_sum : ∀ (a b c : Point), DistinctThreePoints a b c ∧ |(a─b)| = |(b─c)| + |(c─a)| → between b c a  := by
+
+theorem between_eq_ratio_eq_point : ∀ (A B C D : Point), between A C B ∧ between A D B ∧ |(A─C)|/|(C─B)| = |(A─D)|/|(D─B)| → C = D := by
+
+theorem foot_shortest : ∀ (A B C : Point) (L : Line), Foot A B L ∧ distinctPointsOnLine B C L → |(A─C)| > |(A─B)| := by
+
+theorem sq_diff_mono_distinctTwoPointsOnLine : ∀ (A B C D: Point) (AB : Line), distinctPointsOnLine A B AB ∧ ((LiesOnRay B A C ∧ LiesOnRay C B D) ∨ (C = B ∧ between A C D) ∨ (between A B C ∧ between A C D)) → |(C─A)| * |(C─A)| - |(C─B)| * |(C─B)| < |(D─A)| * |(D─A)| - |(D─B)| * |(D─B)| := by
+
+theorem sq_diff_mono_distinctTwoPointsOnLine' : ∀ (A B C D: Point) (AB : Line), distinctPointsOnLine A B AB ∧ C.onLine AB ∧ D.onLine AB ∧ |(C─A)| * |(C─A)| - |(C─B)| * |(C─B)| < |(D─A)| * |(D─A)| - |(D─B)| * |(D─B)| → ((LiesOnRay B A C ∧ LiesOnRay C B D) ∨ (C = B ∧ between A C D) ∨ (between A B C ∧ between A C D)) := by
+
+theorem sq_diff_mono_distinctThreePointsOnLine : ∀ (A B C D E: Point) (AB : Line), distinctPointsOnLine A B AB ∧ C.onLine AB ∧ D.onLine AB ∧ E.onLine AB ∧ |(C─A)| * |(C─A)| - |(C─B)| * |(C─B)| < |(D─A)| * |(D─A)| - |(D─B)| * |(D─B)| ∧ |(D─A)| * |(D─A)| - |(D─B)| * |(D─B)| < |(E─A)| * |(E─A)| - |(E─B)| * |(E─B)| → between C D E := by
+
+theorem angleBisector_opposingSides : ∀ (A B C I : Point) (AI : Line), (distinctPointsOnLine A I AI) ∧ Triangle A B C ∧ ∠ I:A:B = ∠ I:A:C →  B.opposingSides C AI := by
+
+theorem acuteAngle_foot_on_ray : ∀(A B C D: Point) (BC: Line), distinctPointsOnLine B C BC ∧ Foot A D BC ∧ ∠A:B:C < ∟ → LiesOnRay B C D := by
+
+theorem obutseAngle_foot_on_ray : ∀(A B C D: Point) (BC: Line), distinctPointsOnLine B C BC ∧ Foot A D BC ∧ ∠A:B:C > ∟ → between D B C := by
+
+theorem parallel_imp_eq_alternateAngles :
+∀ (L M T : Line) (A B C D : Point),
+  (¬ L.intersectsLine M) ∧
+  TwoLinesIntersectAtPoint L T A ∧
+  TwoLinesIntersectAtPoint M T B ∧
+  C.onLine L ∧
+  D.onLine M ∧ A ≠ C ∧ D ≠ B ∧ A ≠ B ∧
+  C.opposingSides D T
+  → ∠ C:A:B = ∠ D:B:A
+:= by
+
+theorem parallel_if_eq_alternateAngles :
+∀ (L M T : Line) (A B C D : Point),
+  TwoLinesIntersectAtPoint L T A ∧
+  TwoLinesIntersectAtPoint M T B ∧
+  C.onLine L ∧
+  D.onLine M ∧
+  C.opposingSides D T ∧ A ≠ B
+  ∧ ∠ C:A:B = ∠ A:B:D  → (¬ L.intersectsLine M) := by
+
+theorem parallel_if_eq_alternateExteriorAngles : ∀ (a b c d e : Point) (AB CD BD : Line),
+  distinctPointsOnLine a b AB ∧ distinctPointsOnLine c d CD ∧ distinctPointsOnLine b d BD ∧
+  (between e b d) ∧ (a.sameSide c BD) ∧
+  (∠ e:b:a = ∠ e:d:c) →
+  ¬(AB.intersectsLine CD) :=
+by
+
+theorem parallel_imp_eq_alternateExteriorAngles : ∀ (a b c d e : Point) (AB CD BD : Line),
+  distinctPointsOnLine a b AB ∧ distinctPointsOnLine c d CD ∧ distinctPointsOnLine b d BD ∧
+  (between e b d) ∧ (a.sameSide c BD) ∧
+  ¬(AB.intersectsLine CD)  → (∠ e:b:a = ∠ e:d:c)
+   := by
+
+theorem parallel_imp_supp_consecutiveAngles :
+∀ (L M T : Line) (A B C D : Point),
+  (¬ L.intersectsLine M) ∧
+  TwoLinesIntersectAtPoint L T A ∧
+  TwoLinesIntersectAtPoint M T B ∧
+  C.onLine L ∧
+  D.onLine M ∧
+  C.sameSide D T ∧ A ≠ B
+  → ∠ C:A:B + ∠ A:B:D = ∟ + ∟
+:= by
+
+theorem parallel_if_supp_consecutiveAngles :
+∀ (L M T : Line) (A B C D : Point),
+  TwoLinesIntersectAtPoint L T A ∧
+  TwoLinesIntersectAtPoint M T B ∧
+  C.onLine L ∧
+  D.onLine M ∧
+  C.sameSide D T ∧ A ≠ B
+  ∧ ∠ C:A:B + ∠ A:B:D = ∟ + ∟ → (¬ L.intersectsLine M) := by
+
+theorem common_perpLine_imp_coll : ∀ (A B C D: Point), A ≠ B ∧ C ≠ B  ∧ B ≠ D ∧  ∠A:B:C = ∟ ∧ ∠A:B:D = ∟ → Coll B C D := by
+
+theorem perpLine_imp_rightAngleLine_parallel : ∀ (L1 L2 M : Line),
+  (PerpLine L1 M) ∧ (PerpLine L2 M) ∧ L1 ≠ L2 →
+  ¬(L1.intersectsLine L2) := by
+
+theorem perp_parallel_imp_perp:
+  ∀ (M N L : Line),
+    (PerpLine M N ∧ ¬L.intersectsLine M) →
+    PerpLine L N :=
+by
+
+theorem perpLine_imp_rightAngle : ∀ (P Q R: Point) (L1 L2 : Line), PerpLine L1 L2 ∧ TwoLinesIntersectAtPoint L1 L2 P ∧ Q.onLine L1 ∧ R.onLine L2 ∧ Q ≠ P ∧ R ≠ P → ∠Q:P:R = ∟ := by
+
+theorem foot_if_rightAngle: ∀ (A B C: Point) (l : Line), ¬ A.onLine l ∧ distinctPointsOnLine B C l ∧ ∠A:B:C = ∟ → Foot A B l:= by
+
+theorem perpLine_unique : ∀ (A : Point) (L : Line),
+  ¬(A.onLine L)
+  → ∃! (M : Line),
+    A.onLine M
+    ∧ PerpLine L M
+    :=
+by
+
+theorem foot_unique: ∀ (c h g: Point) (AB : Line), Foot c h AB ∧ Foot c g AB → h = g := by
+
+theorem perpLine_imp_eq_sq_diff : ∀ (A B P Q : Point) (AB PQ : Line), distinctPointsOnLine A B AB ∧ distinctPointsOnLine P Q PQ ∧ PerpLine AB PQ → |(A─P)| * |(A─P)| - |(A─Q)| * |(A─Q)| = |(B─P)| * |(B─P)| - |(B─Q)| * |(B─Q)| := by
+
+theorem sq_diff_unique_onLine: ∀ (A B C D : Point) (AB : Line), distinctPointsOnLine A B AB ∧ C.onLine AB ∧ D.onLine AB ∧ |(C─A)| * |(C─A)| - |(C─B)| * |(C─B)| = |(D─A)| * |(D─A)| - |(D─B)| * |(D─B)| → C = D := by
+
+theorem perpLine_if_eq_sq_diff_lemma : ∀ (A B P Q : Point) (AB PQ : Line), distinctPointsOnLine A B AB ∧ distinctPointsOnLine P Q PQ ∧ |(A─P)| * |(A─P)| - |(A─Q)| * |(A─Q)| = |(B─P)| * |(B─P)| - |(B─Q)| * |(B─Q)| ∧ (A.onLine PQ ∨ B.onLine PQ ∨ P.onLine AB ∨ Q.onLine AB) → PerpLine AB PQ := by
+
+theorem perpLine_if_eq_sq_diff : ∀ (A B P Q : Point) (AB PQ : Line), distinctPointsOnLine A B AB ∧ distinctPointsOnLine P Q PQ ∧ |(A─P)| * |(A─P)| - |(A─Q)| * |(A─Q)| = |(B─P)| * |(B─P)| - |(B─Q)| * |(B─Q)| → PerpLine AB PQ := by
+
+theorem PythagoreanTheorem_converse : ∀ (a b c: Point), (Triangle a b c) ∧ |(b─c)| * |(b─c)| = |(b─a)| * |(b─a)| + |(a─c)| * |(a─c)| → ∠ b:a:c = ∟ := by
+
+theorem perpBisector_imp_opposingSides:  ∀ (A B : Point) (L : Line),
+PerpBisector A B L → A.opposingSides B L := by
+
+theorem perpBisector_imp_eq_dist : ∀ (A B : Point) (L : Line),
+  PerpBisector A B L →
+  (∀ (X : Point), X.onLine L → |(X─A)| = |(X─B)|) ∧
+  (∀ (X : Point), |(X─A)| = |(X─B)| → X.onLine L)
+:= by
+
+theorem perpBisector_if_eq_dist :
+∀ (a b p q : Point) (L : Line),
+(a ≠ b) ∧ (|(a─p)| = |(b─p)|) ∧ (|(a─q)| = |(b─q)|) ∧ distinctPointsOnLine p q L
+→ PerpBisector a b L := by
+
+theorem perpBisector_iff : ∀ (A B : Point) (L: Line),
+PerpBisector A B L ↔ ∃ (P :Point) (AB : Line), P.onLine L ∧ MidPoint A P B ∧ PerpLine AB L ∧ distinctPointsOnLine A B AB := by
+
+theorem perpBisector_imp_perpLine : ∀(A B: Point) (AB L: Line), distinctPointsOnLine A B AB ∧  (PerpBisector A B L) → PerpLine AB L := by
+
+theorem perpBisector_imp_congruentTriangles : ∀ (A B P Q : Point) (L: Line), PerpBisector A B L ∧ P.onLine L ∧ Q.onLine L ∧ P ≠ Q → CongruentTriangles P Q A P Q B := by
+
+theorem cyclic_if_eq_angles : ∀ (A B C D: Point) (AB:Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ ∠B:C:A = ∠B:D:A ∧ C.sameSide D AB → D.onCircle Ω:= by
+
+theorem cyclic_if_supp_angles : ∀ (A B C D: Point) (AB:Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ A.onCircle Ω ∧ B.onCircle Ω ∧  C.onCircle Ω ∧ ∠B:C:A + ∠B:D:A = ∟ + ∟ ∧ C.opposingSides D AB → D.onCircle Ω:= by
+
+theorem IntersectingSecantsTheorem_converse: ∀ (a b c d e: Point),¬ Coll a b c ∧ (between e a b) ∧ (between e c d) ∧ |(e─a)| * |(e─b)| = |(e─c)| * |(e─d)| → Cyclic a b c d := by
+
+theorem IntersectingChordsTheorem_converse: ∀ (a b c d e: Point),¬ Coll a b c ∧ (between a e b) ∧ (between c e d) ∧ |(e─a)| * |(e─b)| = |(e─c)| * |(e─d)| → Cyclic a b c d := by
+
+theorem eq_centralAngles_if_eq_chords : ∀ (a b c d o: Point) (O : Circle), a.onCircle O ∧ b.onCircle O ∧ c.onCircle O ∧ d.onCircle O ∧  o.isCentre O ∧ |(a─b)| = |(c─d)| → ∠a:o:b =∠ c:o:d := by
+
+theorem chord_perpBisector : ∀ (O A B: Point) (C: Circle) (AB L: Line), O.isCentre C ∧ A.onCircle C ∧ B.onCircle C ∧ distinctPointsOnLine A B AB ∧ PerpLine AB L
+  → O.onLine L →  PerpBisector A B L := by
+
+theorem chord_midpoint_if_foot : ∀ (O A B D: Point) (C: Circle) (AB: Line), O.isCentre C ∧ A.onCircle C ∧ B.onCircle C ∧ distinctPointsOnLine A B AB ∧ ¬ (O.onLine AB) ∧ Foot O D AB → |(A─D)| = |(D─B)|:= by
+
+theorem chord_midpoint_imp_foot : ∀ (O A B D: Point) (C: Circle) (AB: Line), O.isCentre C ∧ A.onCircle C ∧ B.onCircle C ∧ distinctPointsOnLine A B AB ∧ MidPoint A D B ∧ (¬O.onLine AB) → Foot O D AB:= by
+
+theorem ThalesTheorem : ∀ (a b c o : Point) (C: Circle), o.isCentre C ∧  (Diameter a b o C) ∧ (c.onCircle C) ∧ (c ≠ a) ∧ (c ≠ b) → ∠ a:c:b = ∟ := by
+
+theorem rightAngle_imp_diameter : ∀(A B C O:Point) (Ω : Circle), O.isCentre Ω ∧ Circumcircle Ω A B C ∧ A ≠ B ∧ B ≠ C ∧ C ≠ A ∧ ∠B:A:C = ∟ → Diameter B C O Ω := by
+
+theorem rightAngle_imp_diameter_onCircle : ∀ (A B C O: Point) (Ω: Circle), Diameter A B O Ω ∧ ∠A:C:B = ∟ → C.onCircle Ω := by
+
+theorem diameter_longest : ∀(a b c d o: Point) (C: Circle), (Diameter a b o C) ∧ (c.onCircle C) ∧ (d.onCircle C) → |(a─b)| ≥ |(c─d)| := by
+
+theorem InscribedAngleTheorem_insideTriangle :
+  ∀ (A B C O : Point) (AB BC CA: Line) (Ω : Circle), (formTriangle A B C AB BC CA) ∧ (InsideTriangle O A B C AB BC CA) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω)
+    → ∠ A:O:B = ∠ A:C:B + ∠ A:C:B := by
+
+theorem InscribedAngleTheorem_outsideTriangle :
+  ∀ (A B C O : Point) (OA OC: Line) (Ω : Circle), Triangle A B C ∧ (B.sameSide A OC ∧ B.sameSide C OA) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω) ∧ distinctPointsOnLine O A OA ∧ distinctPointsOnLine O C OC
+    → ∠ A:O:B = ∠ A:C:B + ∠ A:C:B := by
+
+theorem InscribedAngleTheorem_sameSide :
+  ∀ (A B C O : Point) (AB: Line) (Ω : Circle), Triangle A B C ∧  distinctPointsOnLine A B AB ∧ (O.sameSide C AB) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω)
+    → ∠ A:O:B = ∠ A:C:B + ∠ A:C:B := by
+
+theorem InscribedAngleTheorem_opposingSides:
+∀ (A B C O : Point) (AB: Line) (Ω : Circle), Triangle A B C ∧  distinctPointsOnLine A B AB ∧ (O.opposingSides C AB) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω)
+    → ∠ A:O:B + ∠ A:C:B + ∠ A:C:B = ∟ + ∟ + ∟ + ∟:= by
+
+theorem cyclic_eq_angles: ∀ (A B C D: Point) (AB:Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ C≠ A ∧ D ≠ A ∧ C ≠ B ∧ D ≠ B ∧ A.onCircle Ω ∧ B.onCircle Ω ∧  C.onCircle Ω ∧ D.onCircle Ω ∧ C.sameSide D AB → ∠B:C:A = ∠B:D:A := by
+
+theorem cyclic_supp_angles : ∀ (A B C D: Point) (AB:Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ DistinctFourPoints A B C D ∧ A.onCircle Ω ∧ B.onCircle Ω ∧  C.onCircle Ω ∧ D.onCircle Ω ∧ C.opposingSides D AB → ∠B:C:A + ∠B:D:A = ∟ + ∟ := by
+
+theorem cyclic_sameside_symm : ∀ (A B C D : Point) (AB CD : Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ distinctPointsOnLine C D CD ∧ A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ D.onCircle Ω ∧ C.sameSide D AB → A.sameSide B CD := by
+
+theorem cyclic_opposingSides_symm : ∀ (A B C D : Point) (AB CD : Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ distinctPointsOnLine C D CD ∧ A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ D.onCircle Ω ∧ C.opposingSides D AB → A.opposingSides B CD := by
+
+theorem cyclic_opposingSides_imp_sameSide : ∀ (A B C D : Point) (CD AC : Line) (Ω : Circle), A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ D.onCircle Ω ∧ distinctPointsOnLine A C AC ∧ distinctPointsOnLine C D CD ∧ B.opposingSides D AC → A.sameSide B CD := by
+
+theorem cyclic_eq_angles' : ∀ (A B C D: Point) (AB : Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ C.sameSide D AB ∧ A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ D.onCircle Ω → ∠C:A:D = ∠C:B:D := by
+
+theorem cyclic_supp_angles' : ∀ (A B C D: Point) (AB : Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ C.opposingSides D AB ∧ A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ D.onCircle Ω → ∠C:A:D + ∠C:B:D = ∟ + ∟ := by
+
+theorem IntersectingChordsTheorem : ∀ (A B C D E : Point) (Ω: Circle),
+  A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ D.onCircle Ω ∧
+  DistinctFourPoints A B C D ∧
+  between A E B ∧ between C E D → |(A─E)| * |(E─B)| = |(C─E)| * |(E─D)|:= by
+
+theorem IntersectingSecantsTheorem :∀ (A B C D E : Point) (Ω: Circle),
+  A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ D.onCircle Ω ∧
+  DistinctFourPoints A B C D ∧
+  between A B E ∧ between D C E → |(A─E)| * |(E─B)| = |(C─E)| * |(E─D)|:= by
+
+theorem tangentLine_not_in_circle: ∀ (A B O : Point) (Ω: Circle) (L: Line), TangentLineCircleAtPoint A O L Ω ∧ distinctPointsOnLine A B L → B.outsideCircle Ω := by
+
+theorem tangentLine_sameSide_if_onCircle: ∀ (A B C O : Point) (Ω: Circle) (L: Line), TangentLineCircleAtPoint A O L Ω ∧ DistinctThreePoints A B C ∧ A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω → B.sameSide C L := by
+
+theorem AlternateSegmentTheorem_to_diameter : ∀ (A B D X O: Point) (C: Circle) (L AX: Line), Diameter A X O C ∧ B.onCircle C ∧ B ≠ X ∧ distinctPointsOnLine A D L ∧ TangentLineCircleAtPoint A O L C ∧ distinctPointsOnLine A X AX ∧ B.sameSide D AX → ∠D:A:B = ∠A:X:B := by
+
+theorem AlternateSegmentTheorem : ∀ (A B C D O: Point) (Ω : Circle) (AB BC CA L : Line),
+  (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ formTriangle A B C AB BC CA ∧ O.isCentre Ω ∧
+  distinctPointsOnLine A D L ∧ TangentLineCircleAtPoint A O L Ω ∧ B.sameSide D CA
+  → ∠ B:A:D = ∠ B:C:A := by
+
+theorem TangentSecantTheorem_subcase:∀ (P A B C O: Point) (Ω: Circle)(L:Line), A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ between P B C ∧ distinctPointsOnLine P A L ∧ TangentLineCircleAtPoint A O L Ω → |(P─A)| * |(P─A)| = |(P─B)| * |(P─C)| := by
+
+theorem TangentSecantTheorem:∀ (P A B C O: Point) (Ω: Circle)(L:Line), A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω ∧ B ≠ C ∧ Coll P B C ∧ distinctPointsOnLine P A L ∧ TangentLineCircleAtPoint A O L Ω → |(P─A)| * |(P─A)| = |(P─B)| * |(P─C)| := by
+
+theorem eq_len_of_tangents : ∀ (P A B O: Point) (Ω: Circle) (L1 L2: Line), A.onCircle Ω ∧ B.onCircle Ω ∧ distinctPointsOnLine P A L1 ∧ distinctPointsOnLine P B L2 ∧ TangentLineCircleAtPoint A O L1 Ω ∧ TangentLineCircleAtPoint B O L2 Ω → |(P─A)| = |(P─B)| := by
+
+theorem distinctThreePoints_onCircle_formTriangle : ∀ (A B C O : Point) (Γ : Circle),
+  A.onCircle Γ ∧ B.onCircle Γ ∧ C.onCircle Γ ∧ O.isCentre Γ ∧ A ≠ B ∧ B ≠ C ∧ C ≠ A
+  → Triangle A B C := by
+
+theorem cyclic_def : ∀ (A B C D : Point), Cyclic A B C D → ∃ (O: Circle), A.onCircle O ∧ B.onCircle O ∧ C.onCircle O ∧ D.onCircle O:= by
+
+theorem IntersectingSecantsAndChordsTheorem: ∀ (a b c d e: Point),DistinctFourPoints a b c d ∧ Cyclic a b c d ∧ (Coll a b e) ∧ (Coll c d e) → |(e─a)| * |(e─b)| = |(e─c)| * |(e─d)| := by
+
+theorem pow_of_point_in_circle_on_diameter: ∀ (P O A B: Point) (C: Circle),O.isCentre C ∧ A.onCircle C ∧ B.onCircle C ∧ between A P B ∧ Coll A O B→ |(P─A)| * |(P─B)| + |(P─O)| * |(P─O)| = |(O─A)| * |(O─A)| := by
+
+theorem pow_of_point_out_circle_on_diameter: ∀ (P O A B: Point) (C: Circle),O.isCentre C ∧ A.onCircle C ∧ B.onCircle C ∧  between P A B ∧ Coll A O B→ |(P─A)| * |(P─B)| + |(O─A)| * |(O─A)|= |(P─O)| * |(P─O)|  := by
+
+theorem pow_of_point_in_circle: ∀ (P O A B: Point) (C: Circle),O.isCentre C ∧ A.onCircle C ∧ B.onCircle C ∧ between A P B → |(P─A)| * |(P─B)| + |(P─O)| * |(P─O)|= |(O─A)| * |(O─A)|  := by
+
+theorem pow_of_point_out_circle: ∀ (P O A B: Point) (C: Circle),O.isCentre C ∧ A.onCircle C ∧ B.onCircle C ∧  between P A B → |(P─A)| * |(P─B)| + |(O─A)| * |(O─A)|= |(P─O)| * |(P─O)|  := by
+
+theorem pow_of_point_in_circle' : ∀ (A B C : Point) (L : Line) (Ω : Circle), A.insideCircle Ω ∧ A.onLine L ∧ LineIntersectsCircleAtTwoPoints B C L Ω → Pow(A, Ω) + |(A─B)| * |(A─C)| = 0:= by
+
+theorem pow_of_point_out_circle' : ∀ (A B C : Point) (L : Line) (Ω : Circle), A.outsideCircle Ω ∧ A.onLine L ∧ LineIntersectsCircleAtTwoPoints B C L Ω → Pow(A, Ω) = |(A─B)| * |(A─C)| := by
+
+theorem eq_chords_eq_or_supp_inscribedAngles: ∀
+(A B C A' B' C' : Point) (Ω : Circle), DistinctThreePoints A B C ∧ DistinctThreePoints A' B' C' ∧
+  A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω
+  ∧ A'.onCircle Ω ∧ B'.onCircle Ω ∧ C'.onCircle Ω
+  ∧ (|(A─C)| = |(A'─C')|)
+  → ∠ A:B:C = ∠ A':B':C' ∨ ∠ A:B:C + ∠ A':B':C' = ∟ + ∟
+:= by
+
+theorem exists_point_on_opposing_arc  : ∀ (A B C : Point) (AB : Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ C ≠ A ∧ C ≠ B ∧ A.onCircle Ω ∧ B.onCircle Ω ∧ C.onCircle Ω → ∃ (D: Point), D.onCircle Ω ∧ D.opposingSides C AB := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_lemma_1 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ B.outsideCircle Ω₂ ∧ ∠K:O₁:O₂ < ∟ → ∠K:B:C = ∠K:O₁:O₂ := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_lemma_2 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ B.outsideCircle Ω₂ ∧ ∠K:O₁:O₂ > ∟ → ∠K:B:C = ∠K:O₁:O₂ := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_lemma_3 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ C ≠ A ∧ B.insideCircle Ω₂ ∧ ∠K:O₁:O₂ < ∟ → ∠K:B:C = ∠K:O₁:O₂ := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_lemma_4 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ C ≠ A ∧ B.insideCircle Ω₂ ∧ ∠K:O₁:O₂ > ∟ → ∠K:B:C = ∠K:O₁:O₂ := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_lemma_5 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ B ≠ A ∧ B ≠ K ∧ ∠K:O₁:O₂ = ∟ → ∠K:B:C = ∠K:O₁:O₂ := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_subcase_1 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ between B A C ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ B ≠ K ∧ C ≠ K → SimilarTriangles O₁ O₂ K B C K := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_subcase_2 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ between A B C ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ B ≠ K ∧ C ≠ K → SimilarTriangles O₁ O₂ K B C K := by
+
+theorem intersectCircles_similarTriangles_of_one_secant_subcase_3 : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ between B C A ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ B ≠ K ∧ C ≠ K → SimilarTriangles O₁ O₂ K B C K := by
+
+theorem intersectCircles_similarTriangles_of_one_secant : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ A ≠ B ∧ A ≠ C ∧ B ≠ K ∧ C ≠ K → SimilarTriangles O₁ O₂ K B C K := by
+
+theorem intersectCircles_similarTriangles_of_one_secant' : ∀ (O₁ O₂ A B C K : Point) (Ω₁ Ω₂: Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ A ≠ B ∧ A ≠ C ∧ B ≠ K ∧ C ≠ K ∧ (¬ Coll B O₁ K ∧ ¬ Coll C O₂ K) → SimilarTriangles O₁ B K O₂ C K := by
+
+theorem intersectCircles_eq_angles_of_two_secants_lemma_1 : ∀ (O₁ O₂ A B D K : Point) (AK : Line) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ distinctPointsOnLine A K AK ∧ B.onCircle Ω₁ ∧ B ≠ A ∧ B ≠ K ∧ D.onCircle Ω₁ ∧ D ≠ A ∧ D ≠ K ∧ ((B.insideCircle Ω₂ ∧ D.insideCircle Ω₂) ∨ (B.outsideCircle Ω₂ ∧ D.outsideCircle Ω₂)) → ∠B:K:D = ∠B:A:D := by
+
+theorem intersectCircles_eq_angles_of_two_secants_lemma_2 : ∀ (O₁ O₂ A B D K : Point) (AK : Line) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ distinctPointsOnLine A K AK ∧ B.onCircle Ω₁ ∧ B ≠ A ∧ B ≠ K ∧ D.onCircle Ω₁ ∧ D ≠ A ∧ D ≠ K ∧ ((B.insideCircle Ω₂ ∧ D.outsideCircle Ω₂) ∨ (B.outsideCircle Ω₂ ∧ D.insideCircle Ω₂)) → ∠B:K:D + ∠B:A:D = ∟ + ∟ := by
+
+theorem intersectCircles_eq_angles_of_two_secants : ∀ (O₁ O₂ A B C D E K : Point) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ A ≠ B ∧ A ≠ C ∧ B ≠ K ∧ C ≠ K ∧ D.onCircle Ω₁ ∧ E.onCircle Ω₂ ∧ Coll A D E ∧ A ≠ D ∧ A ≠ E ∧ D ≠ K ∧ E ≠ K → ∠B:K:D = ∠C:K:E := by
+
+theorem intersectCircles_similarTriangles_of_two_secants : ∀ (O₁ O₂ A B C D E K : Point) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ A ≠ B ∧ A ≠ C ∧ B ≠ K ∧ C ≠ K ∧ D.onCircle Ω₁ ∧ E.onCircle Ω₂ ∧ Coll A D E ∧ A ≠ D ∧ A ≠ E ∧ D ≠ K ∧ E ≠ K → SimilarTriangles B C K D E K := by
+
+theorem intersectCircles_similarTriangles_of_two_secants' : ∀ (O₁ O₂ A B C D E K : Point) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ A K ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ A ≠ B ∧ A ≠ C ∧ B ≠ K ∧ C ≠ K ∧ D.onCircle Ω₁ ∧ E.onCircle Ω₂ ∧ Coll A D E ∧ A ≠ D ∧ A ≠ E ∧ D ≠ K ∧ E ≠ K ∧ (B ≠ D ∨ C ≠ E) → SimilarTriangles B D K C E K := by
+
+theorem Reim_to_tangentCirclesExterior : ∀ (A B C D E : Point) (BD CE : Line) (Ω₁ Ω₂ : Circle), TangentCirclesExterior Ω₁ Ω₂ ∧ A.onCircle Ω₁ ∧ A.onCircle Ω₂ ∧ B.onCircle Ω₁ ∧ C.onCircle Ω₂ ∧ Coll A B C ∧ A ≠ B ∧ A ≠ C ∧ D.onCircle Ω₁ ∧ E.onCircle Ω₂ ∧ Coll A D E ∧ A ≠ D ∧ A ≠ E ∧ distinctPointsOnLine B D BD ∧ distinctPointsOnLine C E CE → ¬ BD.intersectsLine CE := by
+
+theorem MiquelTheorem_lemma_1 : ∀ (A B C D E F P : Point) (ABC CDF BDE AEF : Line) (BCD DEF : Circle), CompleteQuadrilateral A B C D E F ABC CDF BDE AEF ∧ CirclesIntersectAtTwoPoints BCD DEF D P ∧ Circumcircle BCD B C D ∧ Circumcircle DEF D E F ∧ A.sameSide P BDE → A.sameSide P CDF := by
+
+theorem MiquelTheorem_lemma_2 : ∀ (A B C D E F P : Point) (ABC CDF BDE AEF : Line) (BCD DEF : Circle), CompleteQuadrilateral A B C D E F ABC CDF BDE AEF ∧ CirclesIntersectAtTwoPoints BCD DEF D P ∧ Circumcircle BCD B C D ∧ Circumcircle DEF D E F → A.opposingSides P BDE ∧ A.opposingSides P CDF := by
+
+theorem MiquelTheorem_lemma_3 : ∀ (A B C D E F P : Point) (ABC CDF BDE AEF : Line) (BCD DEF ABE ACF : Circle), CompleteQuadrilateral A B C D E F ABC CDF BDE AEF ∧ Circumcircle BCD B C D ∧ Circumcircle DEF D E F ∧ Circumcircle ABE A B E ∧ Circumcircle ACF A C F ∧ CirclesIntersectAtTwoPoints BCD DEF D P → P.onCircle ABE := by
+
+theorem MiquelTheorem : ∀ (A B C D E F : Point) (ABC CDF BDE AEF : Line) (BCD DEF ABE ACF : Circle), CompleteQuadrilateral A B C D E F ABC CDF BDE AEF ∧ Circumcircle BCD B C D ∧ Circumcircle DEF D E F ∧ Circumcircle ABE A B E ∧ Circumcircle ACF A C F → ∃ (P : Point), P.onCircle BCD ∧ P.onCircle DEF ∧ P.onCircle ABE ∧ P.onCircle ACF := by
+
+theorem radicalAxis_perp_lineOfCenters : ∀ (O₁ O₂ : Point) (L M: Line) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ distinctPointsOnLine O₁ O₂ L ∧ RadicalAxis Ω₁ Ω₂ M → PerpLine L M := by
+
+theorem radicalAxis_unique : ∀ (O₁ O₂ : Point) (L₁ L₂ : Line) (Ω₁ Ω₂ : Circle), O₁ ≠ O₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ RadicalAxis Ω₁ Ω₂ L₁ ∧ RadicalAxis Ω₁ Ω₂ L₂ → L₁ = L₂ := by
+
+theorem radicalAxis_imp_neq_centres : ∀ (O₁ O₂ : Point) (L : Line) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ RadicalAxis Ω₁ Ω₂ L → O₁ ≠ O₂ := by
+
+theorem exists_radicalAxis_lemma_1 :  ∀ (O₁ O₂: Point) (Ω₁ Ω₂ : Circle), O₁ ≠ O₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ → ∃ (P Q R S O: Point) (Ω : Circle), CirclesIntersectAtTwoPoints Ω Ω₁ P Q ∧ CirclesIntersectAtTwoPoints Ω Ω₂ R S ∧ O.isCentre Ω ∧ ¬ Coll O O₁ O₂:= by
+
+theorem exists_radicalAxis_lemma_2 : ∀ (O₁ O₂: Point) (Ω₁ Ω₂ : Circle), O₁ ≠ O₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ → ∃ (T : Point), Pow(T, Ω₁) = Pow(T, Ω₂) := by
+
+theorem exists_radicalAxis : ∀ (O₁ O₂: Point) (Ω₁ Ω₂ : Circle), O₁ ≠ O₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ → ∃ (L : Line), RadicalAxis Ω₁ Ω₂ L := by
+
+theorem intersectCircles_radicalAxis : ∀ (P Q : Point) (PQ : Line) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ CirclesIntersectAtTwoPoints Ω₁ Ω₂ P Q ∧ distinctPointsOnLine P Q PQ → RadicalAxis Ω₁ Ω₂ PQ := by
+
+theorem tangentCirclesInterior_radicalAxis : ∀ (P O₁ O₂ : Point) (L : Line) (Ω₁ Ω₂ : Circle), TangentCirclesInterior Ω₁ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ P.onCircle Ω₁ ∧ P.onCircle Ω₂ ∧(TangentLineCircleAtPoint P O₁ L Ω₁ ∨ TangentLineCircleAtPoint P O₂ L Ω₂) → RadicalAxis Ω₁ Ω₂ L := by
+
+theorem radicalAxis_sameSide_if_pow_same_sign_lemma :∀ (O₁ O₂ P Q : Point) (L M: Line) (Ω₁ Ω₂ : Circle), RadicalAxis Ω₁ Ω₂ L ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ distinctPointsOnLine O₁ O₂ M ∧ P.onLine M ∧ Q.onLine M ∧ Pow(P, Ω₁) > Pow(P, Ω₂) ∧ Pow(Q, Ω₁) > Pow(Q, Ω₂) → P.sameSide Q L := by
+
+theorem radicalAxis_sameSide_if_pow_same_sign : ∀ (P Q : Point) (L : Line) (Ω₁ Ω₂ : Circle), RadicalAxis Ω₁ Ω₂ L ∧ ((Pow(P, Ω₁) > Pow(P, Ω₂) ∧ Pow(Q, Ω₁) > Pow(Q, Ω₂)) ∨ (Pow(P, Ω₁) < Pow(P, Ω₂) ∧ Pow(Q, Ω₁) < Pow(Q, Ω₂))) → P.sameSide Q L := by
+
+theorem radicalAxis_opposingSides_if_pow_opposite_sign_lemma :∀ (O₁ O₂ P Q : Point) (L M: Line) (Ω₁ Ω₂ : Circle), RadicalAxis Ω₁ Ω₂ L ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ distinctPointsOnLine O₁ O₂ M ∧ P.onLine M ∧ Q.onLine M ∧ ((Pow(P, Ω₁) > Pow(P, Ω₂) ∧ Pow(Q, Ω₁) < Pow(Q, Ω₂)) ∨ (Pow(P, Ω₁) < Pow(P, Ω₂) ∧ Pow(Q, Ω₁) > Pow(Q, Ω₂))) → P.opposingSides Q L := by
+
+theorem radicalAxis_opposingSides_if_pow_opposite_sign : ∀ (P Q : Point) (L : Line) (Ω₁ Ω₂ : Circle), RadicalAxis Ω₁ Ω₂ L ∧ ((Pow(P, Ω₁) > Pow(P, Ω₂) ∧ Pow(Q, Ω₁) < Pow(Q, Ω₂)) ∨ (Pow(P, Ω₁) < Pow(P, Ω₂) ∧ Pow(Q, Ω₁) > Pow(Q, Ω₂))) → P.opposingSides Q L := by
+
+theorem rad_gt_zero : ∀ (Ω : Circle), (rad Ω) > 0 := by
+
+theorem point_in_circle_if_to_rad : ∀ (A O: Point) (Ω : Circle), O.isCentre Ω ∧ |(A─O)| < (rad Ω) → A.insideCircle Ω := by
+
+theorem point_in_circle_onlyif_to_rad : ∀ (A O: Point) (Ω : Circle), O.isCentre Ω ∧ A.insideCircle Ω → |(A─O)| < (rad Ω) := by
+
+theorem point_out_circle_if_to_rad : ∀ (A O: Point) (Ω : Circle), O.isCentre Ω ∧ |(A─O)| > (rad Ω) → A.outsideCircle Ω := by
+
+theorem point_out_circle_onlyif_to_rad : ∀ (A O: Point) (Ω : Circle), O.isCentre Ω ∧ A.outsideCircle Ω → |(A─O)| > (rad Ω) := by
+
+theorem point_on_circle_if_to_rad : ∀ (A O : Point) (Ω : Circle), O.isCentre Ω ∧ |(A─O)| = (rad Ω) → A.onCircle Ω := by
+
+theorem point_on_circle_onlyif_to_rad : ∀ (A O : Point) (Ω : Circle), O.isCentre Ω ∧ A.onCircle Ω → |(A─O)| = (rad Ω) := by
+
+theorem point_in_circle_if_to_pow : ∀ (A : Point) (Ω : Circle), Pow(A, Ω) < 0 → A.insideCircle Ω := by
+
+theorem point_in_circle_onlyif_to_pow : ∀ (A : Point) (Ω : Circle), A.insideCircle Ω → Pow(A, Ω) < 0 := by
+
+theorem point_out_circle_if_to_pow : ∀ (A : Point) (Ω : Circle), Pow(A, Ω) > 0 → A.outsideCircle Ω := by
+
+theorem point_out_circle_onlyif_to_pow : ∀ (A : Point) (Ω : Circle), A.outsideCircle Ω → Pow(A, Ω) > 0 := by
+
+theorem point_on_circle_if_to_pow : ∀ (A : Point) (Ω : Circle), Pow(A, Ω) = 0 → A.onCircle Ω := by
+
+theorem point_on_circle_onlyif_to_pow : ∀ (A : Point) (Ω : Circle), A.onCircle Ω → Pow(A, Ω) = 0 := by
+
+theorem point_out_circle_if_to_angle: ∀ (A B C D : Point) (AB : Line) (Ω : Circle), A.onCircle Ω ∧ B.onCircle Ω ∧ distinctPointsOnLine A B AB ∧ C.onCircle Ω ∧ C ≠ A ∧ C ≠ B ∧ D.sameSide C AB ∧ ∠A:D:B < ∠A:C:B → D.outsideCircle Ω := by
+
+theorem point_in_circle_if_to_angle: ∀ (A B C D : Point) (AB : Line) (Ω : Circle), A.onCircle Ω ∧ B.onCircle Ω ∧ distinctPointsOnLine A B AB ∧ C.onCircle Ω ∧ C ≠ A ∧ C ≠ B ∧ D.sameSide C AB ∧ ∠A:D:B > ∠A:C:B → D.insideCircle Ω := by
+
+theorem point_in_circle_onlyif_to_angle: ∀ (A B C D : Point) (AB : Line) (Ω : Circle), A.onCircle Ω ∧ B.onCircle Ω ∧ distinctPointsOnLine A B AB ∧ C.onCircle Ω ∧ C ≠ A ∧ C ≠ B ∧ D.sameSide C AB ∧ D.insideCircle Ω → ∠A:D:B > ∠A:C:B := by
+
+theorem point_out_circle_onlyif_to_angle: ∀ (A B C D : Point) (AB : Line) (Ω : Circle), A.onCircle Ω ∧ B.onCircle Ω ∧ distinctPointsOnLine A B AB ∧ C.onCircle Ω ∧ C ≠ A ∧ C ≠ B ∧ D.sameSide C AB ∧ D.outsideCircle Ω → ∠A:D:B < ∠A:C:B := by
+
+theorem intersectsCircle_imp_neq_centres : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ Ω₁ ≠ Ω₂ ∧ Ω₁.intersectsCircle Ω₂ → O₁ ≠ O₂ := by
+
+theorem chord_intesectsCircle : ∀ (A B : Point) (AB : Line) (Ω : Circle), A.onCircle Ω ∧ B.onCircle Ω ∧ distinctPointsOnLine A B AB → AB.intersectsCircle Ω := by
+
+theorem circles_intersect_at_two_points : ∀ (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ Ω₁.intersectsCircle Ω₂ → ∃ (A B : Point), A ≠ B ∧ A.onCircle Ω₁ ∧ A.onCircle Ω₂ ∧ B.onCircle Ω₁ ∧ B.onCircle Ω₂ := by
+
+theorem circumcentre_isCentre_circumcircle : ∀ (a b c o : Point) (C : Circle), Triangle a b c ∧ a.onCircle C ∧ b.onCircle C ∧ c.onCircle C ∧ |(o─a)| = |(o─b)| ∧ |(o─b)| = |(o─c)| → o.isCentre C := by
+
+theorem circles_intersect_le_two_points : ∀ (A B C : Point) (Ω₁ Ω₂ : Circle), A ≠ B ∧ B ≠ C ∧ C ≠ A ∧ A.onCircle Ω₁ ∧ A.onCircle Ω₂ ∧ B.onCircle Ω₁ ∧ B.onCircle Ω₂ ∧ C.onCircle Ω₁ ∧ C.onCircle Ω₂ → Ω₁ = Ω₂ := by
+
+theorem intersectCircles_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle),
+O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ |(O₁─O₂)| < (rad Ω₁) + (rad Ω₂) ∧ (rad Ω₂) + |(O₁─O₂)| > (rad Ω₁) ∧ (rad Ω₁) + |(O₁─O₂)| > (rad Ω₂) → Ω₁.intersectsCircle Ω₂ := by
+
+theorem intersectCircles_onlyif : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle),
+Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ Ω₁.intersectsCircle Ω₂ → |(O₁─O₂)| < (rad Ω₁) + (rad Ω₂) ∧ (rad Ω₂) + |(O₁─O₂)| > (rad Ω₁) ∧ (rad Ω₁) + |(O₁─O₂)| > (rad Ω₂) := by
+
+theorem intersectsCircle_symm : ∀ (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ Ω₁.intersectsCircle Ω₂ → Ω₂.intersectsCircle Ω₁ := by
+
+theorem separateCircles_onlyif : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ SeperateCircles Ω₁ Ω₂ → |(O₁─O₂)| > (rad Ω₁) + (rad Ω₂) := by
+
+theorem separateCircles_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ |(O₁─O₂)| > (rad Ω₁) + (rad Ω₂) → SeperateCircles Ω₁ Ω₂ := by
+
+theorem tangentCirclesExterior_onlyif : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ TangentCirclesExterior Ω₁ Ω₂ → |(O₁─O₂)| = (rad Ω₁) + (rad Ω₂) := by
+
+theorem tangentCirclesExterior_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ |(O₁─O₂)| = (rad Ω₁) + (rad Ω₂) → TangentCirclesExterior Ω₁ Ω₂ := by
+
+theorem tangentCirclesInterior_onlyif : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ TangentCirclesInterior Ω₁ Ω₂ → |(O₁─O₂)| = (rad Ω₂) - (rad Ω₁) := by
+
+theorem tangentCirclesInterior_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ |(O₁─O₂)| = (rad Ω₂) - (rad Ω₁) → TangentCirclesInterior Ω₁ Ω₂:= by
+
+theorem insideCircle_onlyif : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ InsideCircle Ω₁ Ω₂ → |(O₁─O₂)| < (rad Ω₂) - (rad Ω₁) := by
+
+theorem insideCircle_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ |(O₁─O₂)| < (rad Ω₂) - (rad Ω₁) → InsideCircle Ω₁ Ω₂ := by
+
+theorem tangentCircles_def : ∀ (Ω₁ Ω₂ : Circle), TangentCircles Ω₁ Ω₂ → TangentCirclesInterior Ω₁ Ω₂ ∨ TangentCirclesInterior Ω₂ Ω₁ ∨ TangentCirclesExterior Ω₁ Ω₂ := by
+
+theorem tangentCircles_onlyif : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ TangentCircles Ω₁ Ω₂ → |(O₁─O₂)| = (rad Ω₂) + (rad Ω₁) ∨ |(O₁─O₂)| = (rad Ω₂) - (rad Ω₁) ∨ |(O₁─O₂)| = (rad Ω₁) - (rad Ω₂) := by
+
+theorem tangentCircles_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ (|(O₁─O₂)| = (rad Ω₂) + (rad Ω₁) ∨ |(O₁─O₂)| = (rad Ω₂) - (rad Ω₁) ∨ |(O₁─O₂)| = (rad Ω₁) - (rad Ω₂)) → TangentCircles Ω₁ Ω₂ := by
+
+theorem circles_position_classification : ∀ (Ω₁ Ω₂ : Circle), Ω₁ = Ω₂ ∨ Ω₁.intersectsCircle Ω₂ ∨ TangentCircles Ω₁ Ω₂ ∨ SeperateCircles Ω₁ Ω₂ ∨ InsideCircle Ω₁ Ω₂ ∨ InsideCircle Ω₂ Ω₁ := by
+
+theorem tangentLine_or_intersectsCircle_if_common_point : ∀ (A O: Point) (L : Line) (Ω : Circle), O.isCentre Ω ∧ A.onLine L ∧ A.onCircle Ω → TangentLineCircleAtPoint A O L Ω ∨ L.intersectsCircle Ω := by
+
+theorem circles_position_classification_with_common_points : ∀ (A : Point) (Ω₁ Ω₂ : Circle), Ω₁ ≠ Ω₂ ∧ A.onCircle Ω₁ ∧ A.onCircle Ω₂ → TangentCircles Ω₁ Ω₂ ∨ Ω₁.intersectsCircle Ω₂ := by
+
+theorem tangentCircles_coll_centres_tangentPoint : ∀ (P O₁ O₂ : Point) (L : Line) (Ω₁ Ω₂ : Circle), TangentCircles Ω₁ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ P.onCircle Ω₁ ∧ P.onCircle Ω₂ → Coll O₁ P O₂ := by
+
+theorem tangentCircles_commonTangent : ∀ (P O₁ O₂ : Point) (L : Line) (Ω₁ Ω₂ : Circle), TangentCircles Ω₁ Ω₂ ∧ O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ P.onCircle Ω₁ ∧ P.onCircle Ω₂ ∧ (TangentLineCircleAtPoint P O₁ L Ω₁ ∨ TangentLineCircleAtPoint P O₂ L Ω₂) → (TangentLineCircleAtPoint P O₁ L Ω₁ ∧ TangentLineCircleAtPoint P O₂ L Ω₂) := by
+
+theorem intersectCircles_perpBisector_lineOfCentres :
+  ∀  (O1 O2 A B : Point) (L : Line)(C1 C2 : Circle),
+  (CirclesIntersectAtTwoPoints C1 C2 A B) ∧ O1.isCentre C1 ∧ O2.isCentre C2 ∧ O1 ≠ O2
+  ∧ (O1.onLine L)
+  ∧ (O2.onLine L)
+  → PerpBisector A B L :=
+by
+
+theorem intersectCircles_lineOfCentres_triangle: ∀ (O1 O2 A B : Point) (C1 C2: Circle), O1 ≠ O2 ∧ O1.isCentre C1 ∧ O2.isCentre C2∧ CirclesIntersectAtTwoPoints C1 C2 A B →  Triangle O1 O2 A := by
+
+theorem coll_triangleArea_ratio_eq_seg_ratio: ∀ (a b c d: Point),  Coll b c d → (△a:b:d).area * |(b─c)| = (△a:b:c).area * |(b─d)| := by
+
+theorem triangleArea_pos: ∀(A B C : Point), Triangle A B C → (△A:B:C).area >0 := by
+
+theorem coll_triangleArea_add: ∀(A B C D: Point), between B D C→ (△A:B:D).area +  (△A:C:D).area = (△A:B:C).area := by
+
+theorem coll_triangleArea_ratio_eq_seg_ratio2: ∀ (a b c d e: Point), Coll a e d ∧ Coll b c d → (△a:b:e).area * |(d─c)| = (△c:a:e).area * |(d─b)|:= by
+
+theorem MenelausTheorem : ∀ (A B C L M N: Point) (AB BC CA l :Line), formTriangle A B C AB BC CA  ∧  L.onLine l ∧ L.onLine BC ∧ M.onLine l ∧ M.onLine CA ∧ N.onLine l ∧ N.onLine AB → |(N─A)| * |(L─B)| * |(M─C)| = |(N─B)| * |(L─C)| * |(M─A)|:= by
+
+theorem CevaTheorem : ∀ (A B C D E F O: Point), (Triangle A B C) ∧ Coll A F B ∧ Coll A E C ∧ Coll B D C ∧ Coll A O D ∧ Coll C O F ∧ Coll B O E → |(B─D)| * |(C─E)| * |(A─F)| = |(D─C)| * |(E─A)| * |(F─B)| := by
+
+theorem CevaTheorem_converse : ∀ (A B C D E F O : Point), (Triangle A B C) ∧ Coll A F B ∧ Coll A E C ∧ Coll B D C ∧ Coll A O D ∧ |(B─D)| * |(C─E)| * |(A─F)| = |(D─C)| * |(E─A)| * |(F─B)| ∧  Coll C O F →  Coll B O E := by
+
+theorem AngleBisectorTheorem : ∀ (A B C D: Point), Triangle A B C ∧ ∠D:A:B = ∠D:A:C ∧ Coll B D C → |(A─C)| * |(B─D)| = |(A─B)| * |(C─D)|:= by
+
+theorem sin_rightAngle : sin ∟ = 1 := by
+
+theorem cos_rightAngle : cos ∟ = 0 := by
+
+theorem straightAngle_eq_pi: ∟ + ∟ = Real.pi := by
+
+theorem eq_sine_if_coll: ∀ (A B C D: Point), Coll A B C  ∧ (B ≠ C) ∧ (B ≠ A) ∧ (C ≠ A) ∧ ¬ (Coll A B D) →  sin (∠ D:B:C) = sin (∠ D:B:A) := by
+
+theorem triangleArea_sine : ∀ (A B C : Point), Triangle A B C → (△A:B:C).area = |(A─B)| * |(A─C)| * sin (∠B:A:C) / 2 := by
+
+theorem LawOfSines : ∀ (A B C : Point), Triangle A B C → |(A─C)| * sin (∠B:C:A)= |(A─B)| * sin (∠A:B:C)  := by
+
+theorem LawOfCosines : ∀ (A B C : Point), Triangle A B C → |(A─B)| * |(A─B)| + |(A─C)| * |(A─C)| - |(B─C)| * |(B─C)| = 2 * cos (∠B:A:C) * |(A─B)| * |(A─C)| := by
+
+theorem GeneralizedAngleBisectorTheorem: ∀ (A B C D : Point), Triangle A B C ∧ Coll B C D → |(D─C)| * |(A─B)| * sin (∠D:A:B) = |(D─B)| * |(A─C)| * sin (∠D:A:C) := by
+
+theorem GeneralizedAngleBisectorTheorem_to_midpoint : ∀ (A B C D : Point), Triangle A B C ∧ MidPoint B D C → |(A─B)| * sin (∠D:A:B) = |(A─C)| * sin (∠D:A:C) := by
+
+theorem trapezoid_imp_similarTriangles_interior : ∀ (A B C D E : Point) (AB CD : Line), distinctPointsOnLine A B AB ∧ distinctPointsOnLine C D CD ∧ ¬ AB.intersectsLine CD ∧ between A E C ∧ Coll B E D ∧ AB ≠ CD → SimilarTriangles A B E C D E := by
+
+theorem trapezoid_imp_similarTriangles_exterior: ∀ (A B C D E : Point) (AB CD : Line), distinctPointsOnLine A B AB ∧ distinctPointsOnLine C D CD ∧ ¬ AB.intersectsLine CD ∧ between E A C ∧ Coll B E D ∧ AB ≠ CD → SimilarTriangles E A B E C D := by
+
+theorem parallelogram_imp_supp_adjacent_angles :
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    Parallelogram A B C D AB BC CD DA
+    → ∠ D:A:B + ∠ A:B:C = ∟ + ∟ := by
+
+theorem parallelogram_imp_eq_opposite_sides :
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    Parallelogram A B C D AB BC CD DA
+    → |(A─B)| = |(C─D)| ∧ |(B─C)| = |(D─A)| := by
+
+theorem parallelogram_imp_eq_opposite_angles:
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    Parallelogram A B C D AB BC CD DA →
+    ∠D:A:B = ∠B:C:D ∧ ∠A:B:C = ∠C:D:A := by
+
+theorem parallelogram_imp_diagonals_bisect:
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    Parallelogram A B C D AB BC CD DA →
+    ∃ M, MidPoint A M C ∧ MidPoint B M D := by
+
+theorem parallelogram_if_eq_opposite_angles:
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    formQuadrilateral A B C D AB BC CD DA ∧
+    ∠ D:A:B = ∠ B:C:D ∧
+    ∠ A:B:C = ∠ C:D:A
+    → Parallelogram A B C D AB BC CD DA := by
+
+theorem rhombus_imp_diagonal_bisects_angle :
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+  Rhombus A B C D AB BC CD DA →
+     (∠B:A:C = ∠C:A:D
+     ∧ ∠B:C:A = ∠A:C:D
+     ∧ ∠A:B:D = ∠D:B:C
+     ∧ ∠C:D:B = ∠B:D:A) := by
+
+theorem rectangle_if_parallelogram_with_rightAngle:
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    Parallelogram A B C D AB BC CD DA ∧ ∠ A:B:C = ∟
+    → Rectangle A B C D AB BC CD DA := by
+
+theorem rectangle_imp_eq_opposite_sides:
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    Rectangle A B C D AB BC CD DA →
+    |(A─B)| = |(C─D)| ∧ |(B─C)| = |(A─D)| := by
+
+theorem rectangle_if_quadrilateral_with_four_rightAngles:
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    formQuadrilateral A B C D AB BC CD DA ∧
+    ∠ D:A:B = ∟ ∧
+    ∠ A:B:C = ∟ ∧
+    ∠ B:C:D = ∟ ∧
+    ∠ C:D:A = ∟
+    → Rectangle A B C D AB BC CD DA := by
+
+theorem rectangle_if_parallelogram_with_eq_diagonals:
+  ∀ (A B C D : Point) (AB BC CD DA : Line),
+    Parallelogram A B C D AB BC CD DA ∧
+    |(A─C)| = |(B─D)|
+    → Rectangle A B C D AB BC CD DA := by
+
+theorem trapezoid_midsegment_parallel_base : ∀ (A B C D E F: Point) (AB BC CD DA EF: Line), formQuadrilateral A B C D AB BC CD DA ∧ (¬ AB.intersectsLine CD) ∧ distinctPointsOnLine E F EF ∧ MidPoint B E C ∧ MidPoint A F D →  (¬ EF.intersectsLine CD) := by
+--- End of Theorem Library ---
+All theorems in library are proved and you can apply them directedly. The following are few-shot example proof of the most commonly used theorems in library.
+--- Few-shot Examples ---
+Input1:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem InscribedAngleTheorem_sameSide :
+  ∀ (A B C O : Point) (AB: Line) (Ω : Circle), Triangle A B C ∧  distinctPointsOnLine A B AB ∧ (O.sameSide C AB) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω)
+    → ∠ A:O:B = ∠ A:C:B + ∠ A:C:B := by
+
+Output1:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem InscribedAngleTheorem_sameSide :
+  ∀ (A B C O : Point) (AB: Line) (Ω : Circle), Triangle A B C ∧  distinctPointsOnLine A B AB ∧ (O.sameSide C AB) ∧ (A.onCircle Ω) ∧ (B.onCircle Ω) ∧ (C.onCircle Ω) ∧ (O.isCentre Ω)
+    → ∠ A:O:B = ∠ A:C:B + ∠ A:C:B := by
+  euclid_intros
+  euclid_apply line_from_points O A as OA
+  euclid_apply line_from_points A C as AC
+  euclid_apply line_from_points B C as BC
+  euclid_apply line_from_points O B as OB
+  euclid_apply line_from_points O C as OC
+  by_cases B.sameSide C OA
+  · have h1:∠B:A:O = ∠ B:A:C +∠C:A:O := by
+      euclid_finish
+    have h2:B.sameSide A OC := by
+      by_contra
+      euclid_apply intersection_lines AB OC as D
+      euclid_finish
+    euclid_apply InscribedAngleTheorem_outsideTriangle A B C O OA OC Ω
+    euclid_finish
+  · by_cases A.sameSide C OB
+    · have h3:A.sameSide B OC := by
+        by_contra
+        euclid_apply intersection_lines AB OC as D
+        euclid_finish
+      euclid_apply InscribedAngleTheorem_outsideTriangle B A C O OB OC Ω
+      euclid_finish
+    · by_cases C.onLine OB
+      · euclid_apply isoTriangle_imp_eq_angles O A C
+        euclid_apply triangle_ex_angle_eq C O A B
+        euclid_finish
+      · by_cases C.onLine OA
+        · euclid_apply isoTriangle_imp_eq_angles O B C
+          euclid_apply triangle_ex_angle_eq C O B A
+          euclid_finish
+        · euclid_assert InsideTriangle O A B C AB BC AC
+          euclid_apply InscribedAngleTheorem_insideTriangle A B C O AB BC AC Ω
+          euclid_finish
+
+Input2:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem point_in_circle_onlyif_to_rad : ∀ (A O: Point) (Ω : Circle), O.isCentre Ω ∧ A.insideCircle Ω → |(A─O)| < (rad Ω) := by
+    euclid_intros
+    euclid_apply exists_point_on_circle Ω as P
+    euclid_finish
+
+Output2:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem point_in_circle_onlyif_to_rad : ∀ (A O: Point) (Ω : Circle), O.isCentre Ω ∧ A.insideCircle Ω → |(A─O)| < (rad Ω) := by
+    euclid_intros
+    euclid_apply exists_point_on_circle Ω as P
+    euclid_finish
+
+Input3:
+theorem perpLine_imp_rightAngleLine_parallel : ∀ (L1 L2 M : Line),
+  (PerpLine L1 M) ∧ (PerpLine L2 M) ∧ L1 ≠ L2 →
+  ¬(L1.intersectsLine L2) := by
+
+Output3:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem perpLine_imp_rightAngleLine_parallel : ∀ (L1 L2 M : Line),
+  (PerpLine L1 M) ∧ (PerpLine L2 M) ∧ L1 ≠ L2 →
+  ¬(L1.intersectsLine L2) := by
+    euclid_intros
+    euclid_apply intersection_lines L1 M as P
+    euclid_apply intersection_lines L2 M as Q
+    have h1: P ≠ Q := by
+      by_contra
+      euclid_apply exists_distincts_points_on_line L1 P as R
+      euclid_apply exists_distincts_points_on_line L2 P as S
+      euclid_apply exists_distincts_points_on_line M P as T
+      euclid_assert ∠R:P:T = ∟
+      euclid_assert ∠S:P:T = ∟
+      have h1: Coll T P S := by
+        euclid_apply common_perpLine_imp_coll T P R S
+        euclid_finish
+      euclid_finish
+    simp_all
+    euclid_apply exists_distincts_points_on_line L1 P as R
+    euclid_apply exists_distincts_points_on_line L2 Q as T
+    euclid_assert ∠ R:P:Q = ∟
+    by_cases R.sameSide T M
+    · euclid_apply parallel_if_supp_consecutiveAngles
+      euclid_finish
+    · euclid_apply parallel_if_eq_alternateAngles
+      euclid_finish
+
+Input4:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem intersectCircles_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle),
+O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ |(O₁─O₂)| < (rad Ω₁) + (rad Ω₂) ∧ (rad Ω₂) + |(O₁─O₂)| > (rad Ω₁) ∧ (rad Ω₁) + |(O₁─O₂)| > (rad Ω₂) → Ω₁.intersectsCircle Ω₂ := by
+
+Output4:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem intersectCircles_if : ∀ (O₁ O₂ : Point) (Ω₁ Ω₂ : Circle),
+O₁.isCentre Ω₁ ∧ O₂.isCentre Ω₂ ∧ |(O₁─O₂)| < (rad Ω₁) + (rad Ω₂) ∧ (rad Ω₂) + |(O₁─O₂)| > (rad Ω₁) ∧ (rad Ω₁) + |(O₁─O₂)| > (rad Ω₂) → Ω₁.intersectsCircle Ω₂ := by
+    euclid_intros
+    have h_0 : O₁ ≠ O₂ := by
+        euclid_finish
+    euclid_apply line_from_points O₁ O₂ as L
+    euclid_apply intersections_circle_line Ω₁ L as (P, Q)
+    have tmp : between P O₁ Q := by
+        euclid_finish
+    by_cases between P O₁ O₂
+    · have h_1 : P.outsideCircle Ω₂ := by
+        euclid_apply point_out_circle_if_to_rad P O₂ Ω₂
+        euclid_finish
+      have h_2 : Q.insideCircle Ω₂ := by
+        euclid_apply point_in_circle_if_to_rad Q O₂ Ω₂
+        euclid_finish
+      euclid_finish
+    · have h_1 : Q.outsideCircle Ω₂ := by
+        euclid_apply point_out_circle_if_to_rad Q O₂ Ω₂
+        euclid_finish
+      have h_2 : P.insideCircle Ω₂ := by
+        euclid_apply point_in_circle_if_to_rad P O₂ Ω₂
+        euclid_finish
+      euclid_finish
+
+Input5:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem cyclic_supp_angles : ∀ (A B C D: Point) (AB:Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ DistinctFourPoints A B C D ∧ A.onCircle Ω ∧ B.onCircle Ω ∧  C.onCircle Ω ∧ D.onCircle Ω ∧ C.opposingSides D AB → ∠B:C:A + ∠B:D:A = ∟ + ∟ := by
+
+Output5:
+import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem cyclic_supp_angles : ∀ (A B C D: Point) (AB:Line) (Ω : Circle), distinctPointsOnLine A B AB ∧ DistinctFourPoints A B C D ∧ A.onCircle Ω ∧ B.onCircle Ω ∧  C.onCircle Ω ∧ D.onCircle Ω ∧ C.opposingSides D AB → ∠B:C:A + ∠B:D:A = ∟ + ∟ := by
+  euclid_intros
+  euclid_apply exists_centre Ω as O
+  by_cases O.sameSide C AB
+  · euclid_assert O.opposingSides D AB
+    euclid_apply InscribedAngleTheorem_sameSide A B C O AB Ω
+    euclid_apply InscribedAngleTheorem_opposingSides A B D O AB Ω
+    euclid_finish
+  · by_cases O.onLine AB
+    · euclid_apply ThalesTheorem A B C O Ω
+      euclid_apply ThalesTheorem A B D O Ω
+      euclid_finish
+    · euclid_apply InscribedAngleTheorem_sameSide A B D O AB Ω
+      euclid_apply InscribedAngleTheorem_opposingSides A B C O AB Ω
+      euclid_finish
+-- End of Few-shot Examples ---
+
+IMPORTANT: Your response should be started with 
+"import Mathlib
+import SystemE
+import LeanGeo
+namespace LeanGeo
+
+theorem ..." You should restate the theorem that you want to prove in formal language, give a complete proof of the theorem.
+Now, please prove the following theorem:
+{formal_statement}

@@ -64,22 +64,15 @@ def extract_code_and_answer_from_text(
     text: str,
     formal_statements: list[str] | str,
     allow_no_header: bool = False,
+    return_raw_text: bool = False,
+    check_formal_statements: bool = True,
 ) -> tuple[str | None, dict[str, str] | None]:
     """
     Extracts a proof from a Lean 4 code block, ensuring it follows the formal statements.
     """
 
-    if isinstance(formal_statements, str):
-        formal_statements = remove_comments(formal_statements).split("\n\n")
-
-    formal_statements = [
-        fs.replace("\ntheorem", "\n\ntheorem") for fs in formal_statements
-    ]
-    formal_statements = [
-        remove_sorry_statements(fs).strip()
-        for fs in formal_statements
-        if not fs.startswith(("import", "set_option", "open"))
-    ]
+    if return_raw_text:
+        return text, None
 
     # Extract all Lean 4 code blocks
     lean4_codes = re.findall(r"```lean4\n(.*?)\n```", text, re.DOTALL)
@@ -101,9 +94,27 @@ def extract_code_and_answer_from_text(
         logger.debug("'axiom' or 'local_instance' is not allowed.")
         return None, None
 
+    if not check_formal_statements:
+        return lean4_code, None
+    
+    if isinstance(formal_statements, str):
+        formal_statements = remove_comments(formal_statements).split("\n\n")
+
+    formal_statements = [
+        fs.replace("\ntheorem", "\n\ntheorem") for fs in formal_statements
+    ]
+    formal_statements = [
+        remove_sorry_statements(fs).strip()
+        for fs in formal_statements
+        if not fs.startswith(("import", "set_option", "open"))
+    ]
+
     if not all(
         formal_statement in lean4_code for formal_statement in formal_statements
     ):
+        for formal_statement in formal_statements:
+            if formal_statement.strip() not in lean4_code:
+                logger.debug(f'\n{remove_comments(formal_statement).strip()}\n is not in lean4_code\n{lean4_code}')
         return None, None
 
     answers = {}

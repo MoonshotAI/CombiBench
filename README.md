@@ -70,7 +70,7 @@ python evaluation/cli.py online-two-stage -c evaluation/config/template.json5
 
 Note that both evaluation methods are compatible with theorem proving tasks and fill-in-the-blank tasks.
 
-If you use `uv`, you can run the following command to quick evaluate:
+If you use `uv`, you can run the following command to quick evaluate with default settings:
 ```
 uv run evaluation/cli.py online-two-stage -c evaluation/config/template.json5
 ```

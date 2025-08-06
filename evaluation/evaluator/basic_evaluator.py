@@ -7,6 +7,7 @@ from queue import Empty, Queue
 from threading import RLock, Event
 from typing import TextIO
 import time
+import pathlib
 
 from tqdm import tqdm
 import tenacity
@@ -67,6 +68,8 @@ class BasicEvaluator(BaseModel):
     # evaluation mode
     greedy_mode: bool = False
     max_turns: int = 1
+    return_raw_text: bool = False
+    check_formal_statements: bool = True
 
     # flags: should not be initialized by user
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -76,7 +79,6 @@ class BasicEvaluator(BaseModel):
     verification_done: int = 0
     all_done: int = 0
     all_tasks: int = 0
-    estimated_wins: int = 0
 
     # interrupt handling
     _shutdown_event: Event = None
@@ -84,6 +86,10 @@ class BasicEvaluator(BaseModel):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        if pathlib.Path(self.prompt_template).exists():
+            with open(self.prompt_template, "r") as f:
+                self.prompt_template = f.read()
+
         self._shutdown_event = Event()
         self._interrupted = (
             False  # Flag to indicate if the evaluation has been interrupted
@@ -104,7 +110,8 @@ class BasicEvaluator(BaseModel):
         stop=tenacity.stop_after_attempt(3),
         wait=tenacity.wait_exponential(multiplier=1, min=4, max=15),
         before_sleep=lambda state: logger.warning(
-            f"LLM request retry attempt {state.attempt_number}/3 failed: {type(state.outcome.exception()).__name__}: {str(state.outcome.exception())}..."
+            f"LLM request retry attempt {state.attempt_number}/3 failed:"
+            f" {type(state.outcome.exception()).__name__}: {str(state.outcome.exception())}..."
         ),
         retry=tenacity.retry_if_not_exception_type(KeyboardInterrupt),
     )
@@ -145,7 +152,6 @@ class BasicEvaluator(BaseModel):
                 query_messages=query_messages,
                 responses=[],
                 solution_attempts=[],
-                lean_feedbacks=[],
                 error_types=[],
                 passed_at=[],
                 correct_solutions=[],
@@ -209,7 +215,6 @@ class BasicEvaluator(BaseModel):
             try:
                 task = generation_queue.get(timeout=0.1)
 
-                # Check if this problem is already solved in greedy mode
                 with self.lock:
                     already_solved = self._is_problem_successful(task.problem_id)
                 if already_solved and self.greedy_mode:
@@ -251,6 +256,7 @@ class BasicEvaluator(BaseModel):
                     )
                     continue
 
+                # get model output and put it into judge queue
                 judge_queue.put(
                     VerificationTask(
                         problem_id=task.problem_id,
@@ -280,7 +286,7 @@ class BasicEvaluator(BaseModel):
     def _judge(
         self,
         lean4_client: Lean4Client,
-        _generation_queue: Queue[GenerationTask],  # Unused in judge
+        _generation_queue: Queue[GenerationTask],  # reserved for overloading
         judge_queue: Queue[VerificationTask],
         result_queue: Queue[VerificationResult],
     ):
@@ -300,7 +306,8 @@ class BasicEvaluator(BaseModel):
                     formal_statement=task.formal_statement,
                     lean4_client=lean4_client,
                     ground_truths=task.ground_truths,
-                    timeout=self.lean_server_timeout,
+                    return_raw_text=self.return_raw_text,
+                    check_formal_statements=self.check_formal_statements,
                 )
                 result_queue.put(
                     VerificationResult(
@@ -335,6 +342,7 @@ class BasicEvaluator(BaseModel):
         """Record results from verification queue to records and output file."""
         pbar = tqdm(total=self.all_tasks, desc="Processing", unit="task")
         n_success = 0
+        estimated_wins = 0
 
         while not self._check_interrupt():
             try:
@@ -344,7 +352,6 @@ class BasicEvaluator(BaseModel):
                     record.responses.append(result.raw_text)
                     record.solution_attempts.append(result.lean4_code)
                     record.error_types.append(result.error_type)
-                    record.lean_feedbacks.append(result.lean_feedback)
                     if result.error_type == ErrorType.SUCCESS:
                         record.correct_solutions.append(result.lean4_code)
                         record.one_success_solution = result.lean4_code
@@ -363,13 +370,14 @@ class BasicEvaluator(BaseModel):
                                 remaining_attempts = self.n - len(
                                     record.solution_attempts
                                 )
-                                estimated_wins = int(
+                                est_wins = int(
                                     winrate_current_problem * remaining_attempts
                                 )
-                                self.estimated_wins += estimated_wins + 1
+                                estimated_wins += est_wins + 1
                                 self.all_done += remaining_attempts
                                 logger.info(
-                                    f"{result.problem_id} solved, consider {estimated_wins} wins in remaining {remaining_attempts} attempts"
+                                    f"{result.problem_id} solved at attempt {len(record.solution_attempts)},"
+                                    f" estimated {est_wins} wins in remaining {remaining_attempts} attempts"
                                 )
 
                     self.all_done += 1
@@ -381,7 +389,7 @@ class BasicEvaluator(BaseModel):
                 # Update progress bar
                 if self.greedy_mode:
                     postfix_dict = {
-                        "accuracy": f"{accuracy:.2f}% ({n_success}/{self.all_done}), {self.estimated_wins / self.all_done * 100:.2f}% est. ({self.estimated_wins}/{self.all_done})"
+                        "accuracy": f"{estimated_wins / self.all_done * 100:.2f}% est. ({estimated_wins}/{self.all_done})"
                     }
                 else:
                     postfix_dict = {
@@ -455,7 +463,7 @@ class BasicEvaluator(BaseModel):
 
         executor = ThreadPoolExecutor(
             max_workers=self.n_generation_processes + self.n_verification_processes + 1,
-            thread_name_prefix="evaluation",
+            thread_name_prefix="easy_verify",
         )
 
         generator_futures = [

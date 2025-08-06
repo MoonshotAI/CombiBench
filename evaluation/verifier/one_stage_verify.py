@@ -10,7 +10,8 @@ def one_stage_verify(
     formal_statement: str | list[str],
     lean4_client: Lean4Client,
     ground_truths: list[str] | None = None,
-    timeout: int = 60,
+    return_raw_text: bool = False,
+    check_formal_statements: bool = True,
 ) -> tuple[ErrorType, dict[str, Any], str, dict[str, str]]:
     """verify a proof and its answers in a single stage.
 
@@ -37,6 +38,8 @@ def one_stage_verify(
         text=text,
         formal_statements=formal_statement,
         allow_no_header=True,
+        return_raw_text=return_raw_text,
+        check_formal_statements=check_formal_statements,
     )
     lean_feedback = {}
 
@@ -46,10 +49,12 @@ def one_stage_verify(
     if ground_truths is not None and answers is None:
         return ErrorType.ANSWER_NOT_MATCHED, lean_feedback, lean4_code, answers
 
-    for tag, ground_truth in zip(answers.keys(), ground_truths):
-        lean4_code += f"\n\nexample: {tag} = {ground_truth} := by\n  try rfl\n  try norm_num"
-    is_answers_valid, lean_feedback = verify(lean4_code, lean4_client, timeout=timeout)
+    if answers is not None and ground_truths is not None:
+        for tag, ground_truth in zip(answers.keys(), ground_truths):
+            lean4_code += f"\n\nexample: {tag} = {ground_truth} := by\n  try rfl\n  try norm_num"
+    is_answers_valid, lean_feedback = verify(lean4_code, lean4_client)
     if is_answers_valid:
         return ErrorType.SUCCESS, lean_feedback, lean4_code, answers
     else:
+        # return ErrorType.WRONG_ANSWERS, lean_feedback, lean4_code, answers
         return ErrorType.PROOF_FAILED, lean_feedback, lean4_code, answers
