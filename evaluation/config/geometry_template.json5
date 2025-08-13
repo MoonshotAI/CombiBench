@@ -4,7 +4,7 @@
     split: "train", // list of splits to concatenate
     index_column: "name", // column to use as index
     formal_column: "formal_statement", // columns to sum to formal statement
-    ground_truths_column: null, ,     // null for theorem proving task
+    ground_truths_column: null,     // null for theorem proving task
 
     // LEAN4 VERIFIER CONFIGURATION
     lean_server_url: 'http://127.0.0.1:12332',
