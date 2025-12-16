@@ -31,4 +31,4 @@ noncomputable instance {n k} : Fintype (PerfectCover n k) :=
 /--
 Find the number of different perfect covers of a 3-by-4 chessboard by dominoes.
 -/
-theorem brualdi_ch1_5 : Fintype.card (PerfectCover 3 2) = ((9) : ℕ ) := by sorry
+theorem brualdi_ch1_5 : Fintype.card (PerfectCover 3 2) = ((11) : ℕ ) := by sorry
