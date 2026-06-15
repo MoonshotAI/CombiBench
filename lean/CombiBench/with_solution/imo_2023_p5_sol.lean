@@ -28,11 +28,15 @@ def triangleGraph (n : ℕ+) : Digraph (Index n) where
     p.atBottomLeft q ∨ p.atBottomRight q ∨
     q.atBottomLeft p ∨ q.atBottomRight p
 
+/-- The adjacency relation of `triangleGraph` as a `SetRel`, for use with `RelSeries`. -/
+def triangleRel (n : ℕ+) : SetRel (Index n) (Index n) :=
+  {p | (triangleGraph n).Adj p.1 p.2}
+
 -- each row has one red circle
 abbrev JapaneseTriangle (n : ℕ+) := ∀ (i : Fin n), Fin (i + 1)
 
 structure NinjaPath {n : ℕ+} (jt : JapaneseTriangle n) where
-  path : RelSeries (triangleGraph n |>.Adj)
+  path : RelSeries (triangleRel n)
   length : path.length = n.natPred
 
 @[simp]

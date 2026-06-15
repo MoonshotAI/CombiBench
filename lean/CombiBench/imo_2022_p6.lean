@@ -17,7 +17,7 @@ def IsValley (sq : NordicSquare n) (x : Fin n × Fin n) : Prop :=
   ∀ ⦃y : Fin n × Fin n⦄, Adjacent x y → sq x ≤ sq y
 
 structure UphillPath (sq : NordicSquare n) extends
-    RelSeries fun x y ↦ Adjacent x y ∧ sq x < sq y where
+    RelSeries {p | Adjacent p.1 p.2 ∧ sq p.1 < sq p.2} where
   head : sq.IsValley toRelSeries.head
 
 namespace UphillPath
@@ -31,11 +31,8 @@ instance [NeZero n] : Inhabited sq.UphillPath where
 
 instance : CoeFun sq.UphillPath fun x ↦ Fin (x.length + 1) → Fin n × Fin n where coe f := f.1
 
-instance : IsTrans (Fin n × Fin n) fun x y ↦ sq x < sq y where
-  trans _ _ _ := lt_trans
-
 lemma strictMono (p : sq.UphillPath) : StrictMono fun x ↦ sq (p x) :=
-  fun _ _ ↦ (p.ofLE fun _ _ ↦ And.right).rel_of_lt
+  Fin.strictMono_iff_lt_succ.2 fun i ↦ (p.toRelSeries.step i).2
 
 lemma length_lt (p : sq.UphillPath) : p.length < n ^ 2 := by
   simpa using Fintype.card_le_of_injective _ p.strictMono.injective

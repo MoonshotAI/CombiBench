@@ -28,12 +28,20 @@ def triangleGraph (n : ℕ+) : Digraph (Index n) where
     p.atBottomLeft q ∨ p.atBottomRight q ∨
     q.atBottomLeft p ∨ q.atBottomRight p
 
+/-- The "descend to a child" relation as a `SetRel`, for use with `RelSeries`.
+`p.2` is one of the two circles immediately below `p.1`. -/
+def triangleRel (n : ℕ+) : SetRel (Index n) (Index n) :=
+  {p | p.2.atBottomLeft p.1 ∨ p.2.atBottomRight p.1}
+
 -- each row has one red circle
 abbrev JapaneseTriangle (n : ℕ+) := ∀ (i : Fin n), Fin (i + 1)
 
 structure NinjaPath {n : ℕ+} (jt : JapaneseTriangle n) where
-  path : RelSeries (triangleGraph n |>.Adj)
+  path : RelSeries (triangleRel n)
   length : path.length = n.natPred
+  -- the path starts in the top row; together with `triangleRel` this forces
+  -- the `i`-th circle to lie in row `i + 1`
+  head_row : path.head.row = 1
 
 @[simp]
 lemma NinjaPath.path_length_succ {n : ℕ+} {jt : JapaneseTriangle n} (p : NinjaPath jt) :
@@ -42,7 +50,7 @@ lemma NinjaPath.path_length_succ {n : ℕ+} {jt : JapaneseTriangle n} (p : Ninja
 
 def NinjaPath.countRed {n : ℕ+} {jt : JapaneseTriangle n} (p : NinjaPath jt) : ℕ :=
   ∑ (i : Fin (p.path.length + 1)),
-    if (jt (Fin.cast (by simp) i) : ℕ) = (p.path i).col
+    if (jt (Fin.cast (by simp) i) : ℕ) + 1 = (p.path i).col
     then 1
     else 0
 

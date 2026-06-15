@@ -2,26 +2,13 @@ import Mathlib
 
 open EuclideanGeometry Real Filter
 
-namespace List
-
-variable {α β : Type*}
-
--- This is already in a later version of mathlib than the one we are depending on
--- Whether a predicate holds for all ordered triples of elements of a list.
-@[mk_iff]
-inductive Triplewise (p : α → α → α → Prop) : List α → Prop
-  | nil : [].Triplewise p
-  | cons {a : α} {l : List α} : l.Pairwise (p a) → l.Triplewise p → (a :: l).Triplewise p
-
-end List
-
 instance : Fact (Module.finrank ℝ (EuclideanSpace ℝ (Fin 2)) = 2) := ⟨by simp⟩
 
 variable {n} [Fintype n] [DecidableEq n]
 
 -- The value of the following doesn't matter. All that matters is that it exists
 noncomputable instance : Module.Oriented ℝ (EuclideanSpace ℝ n) n where
-  positiveOrientation := Basis.orientation (Pi.basisFun ℝ n)
+  positiveOrientation := (Pi.basisFun ℝ n).orientation
 
 structure IsWindmillProcess (S : Set (EuclideanSpace ℝ (Fin 2)))
     (f : ℕ → EuclideanSpace ℝ (Fin 2)) where
