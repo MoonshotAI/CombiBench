@@ -348,6 +348,9 @@ class BasicEvaluator(BaseModel):
             try:
                 result = result_queue.get(timeout=0.1)
                 with self.lock:
+                    if self.greedy_mode and self._is_problem_successful(result.problem_id):
+                        # The first success already accounted for the remaining attempts.
+                        continue
                     record = records[result.problem_id]
                     record.responses.append(result.raw_text)
                     record.solution_attempts.append(result.lean4_code)
